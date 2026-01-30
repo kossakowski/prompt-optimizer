@@ -15,10 +15,8 @@ The project recently underwent a refactoring from a legacy Bash script (`llm_ens
 
 *   **`llm_ensemble.py`**: The main Python CLI application. This is the recommended entry point.
 *   **`test_llm_ensemble.py`**: A comprehensive `unittest` suite for the Python application, mocking external CLI calls.
+*   **`docs/`**: Directory containing the user guide (`index.html`) and technical reference (`reference.html`).
 *   **`llm_ensemble.sh`**: The legacy Bash script implementation (kept for reference/backward compatibility).
-*   **`GUIDE.html`**: A detailed HTML user guide explaining usage scenarios and flags.
-*   **`functionality_matrix.md`**: Documentation mapping legacy Bash flags to the new Python arguments.
-*   **`architecture_design.md`**: High-level design document for the Python refactor.
 
 # Building and Running
 
