@@ -31,6 +31,7 @@ python3 llm_ensemble.py -m gemini,codex -n 2 -p "Your prompt here"
 *   `-n, --iterations`: Number of times to run each model.
 *   `-p, --prompt`: The input prompt text.
 *   `-f, --prompt-file`: Read prompt from a file.
+*   `-c, --context`: Attach additional files as context (repeatable).
 *   `-o, --outdir`: Directory to save artifacts (defaults to timestamped folder).
 
 ## Running Tests

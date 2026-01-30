@@ -26,6 +26,7 @@ class Config:
     iterations: int
     prompt_text: Optional[str]
     prompt_file: Optional[Path]
+    context_files: List[Path]
     outdir: Path
     gemini_model: str
     codex_model: str
@@ -166,6 +167,28 @@ class EnsembleApp:
         
         # 2. Prompt Processing
         self.prompt_canon = self.cfg.outdir / "prompt.txt"
+        
+        # --- Context Processing ---
+        final_prompt_content = []
+        
+        for ctx_file in self.cfg.context_files:
+            if not ctx_file.exists():
+                die(f"Context file not found: {ctx_file}")
+            
+            try:
+                # Basic binary check
+                raw_ctx = ctx_file.read_bytes()
+                if b'\0' in raw_ctx:
+                    die(f"Context file appears to be binary: {ctx_file}")
+                
+                ctx_text = raw_ctx.decode('utf-8')
+            except UnicodeDecodeError:
+                ctx_text = raw_ctx.decode('latin-1', errors='replace')
+                print(f"Warning: Converted context file {ctx_file} using fallback encoding.", file=sys.stderr)
+                
+            final_prompt_content.append(f"[Context File: {ctx_file.name}]\n<<<\n{ctx_text}\n>>>\n")
+
+        # --- Main Prompt Processing ---
         content = ""
         
         if self.cfg.prompt_file:
@@ -196,7 +219,11 @@ class EnsembleApp:
             else:
                 die("No prompt provided. Use --prompt, --prompt-file, or pipe stdin.")
 
-        self.prompt_canon.write_text(content, encoding='utf-8')
+        if final_prompt_content:
+            final_prompt_content.append("USER PROMPT:\n")
+        final_prompt_content.append(content)
+        
+        self.prompt_canon.write_text("".join(final_prompt_content), encoding='utf-8')
 
         # 3. Parse Models
         # Input: "gemini:modelA,codex,codex:modelB"
@@ -366,6 +393,8 @@ def parse_args() -> Config:
     group.add_argument("-f", "--prompt-file", type=Path, help="Prompt file path")
     parser.add_argument("positional_prompt", nargs="?", help="Positional prompt text")
 
+    parser.add_argument("-c", "--context", action="append", type=Path, dest="context_files", help="Additional context file (can be used multiple times)")
+
     # Options
     parser.add_argument("-o", "--outdir", type=Path, help="Output directory")
     
@@ -410,6 +439,7 @@ def parse_args() -> Config:
         iterations=args.iterations,
         prompt_text=prompt_text,
         prompt_file=args.prompt_file,
+        context_files=args.context_files or [],
         outdir=args.outdir,
         gemini_model=args.gemini_model,
         codex_model=args.codex_model,

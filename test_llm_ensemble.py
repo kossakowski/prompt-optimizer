@@ -211,5 +211,54 @@ class TestLLMEnsemble(unittest.TestCase):
             self.assertEqual(call_args.kwargs['model'], "merge-model")
             self.assertEqual(call_args.kwargs['reasoning'], "xhigh")
 
+    def test_context_file_processing(self):
+        # Mock config
+        config = MagicMock()
+        config.outdir = MagicMock(spec=Path)
+        config.prompt_text = "Main Prompt"
+        config.prompt_file = None
+        config.models_csv = "gemini" # minimal valid
+        config.iterations = 1
+        config.gemini_model = "gemini-default"
+        config.codex_model = "codex-default"
+        
+        # Mock context files
+        ctx1 = MagicMock(spec=Path)
+        ctx1.exists.return_value = True
+        ctx1.name = "ctx1.txt"
+        ctx1.read_bytes.return_value = b"Context One Content"
+        
+        ctx2 = MagicMock(spec=Path)
+        ctx2.exists.return_value = True
+        ctx2.name = "ctx2.py"
+        ctx2.read_bytes.return_value = b"def foo(): pass"
+        
+        config.context_files = [ctx1, ctx2]
+        
+        app = llm_ensemble.EnsembleApp(config)
+        
+        # Mock output file creation (prompt.txt)
+        mock_prompt_canon = MagicMock()
+        config.outdir.__truediv__.return_value = mock_prompt_canon
+        
+        # Mock dependencies check to avoid system calls
+        app.gemini_runner = MagicMock()
+        app.gemini_runner.check_dependency.return_value = True
+        app.codex_runner = MagicMock()
+        app.codex_runner.check_dependency.return_value = True
+        
+        app.validate_and_setup()
+        
+        # Verify content written to prompt.txt
+        mock_prompt_canon.write_text.assert_called_once()
+        written_content = mock_prompt_canon.write_text.call_args[0][0]
+        
+        self.assertIn("[Context File: ctx1.txt]", written_content)
+        self.assertIn("Context One Content", written_content)
+        self.assertIn("[Context File: ctx2.py]", written_content)
+        self.assertIn("def foo(): pass", written_content)
+        self.assertIn("USER PROMPT:", written_content)
+        self.assertIn("Main Prompt", written_content)
+
 if __name__ == '__main__':
     unittest.main()
