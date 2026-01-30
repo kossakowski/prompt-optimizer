@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Ensemble - Beginner's Guide</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --bg-color: #f8fafc;
+            --text-color: #334155;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        header {
+            text-align: center;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            margin-top: 2rem;
+            border-left: 4px solid var(--primary-color);
+            padding-left: 1rem;
+        }
+
+        h3 {
+            color: #475569;
+            margin-top: 1.5rem;
+        }
+
+        p {
+            margin-bottom: 1rem;
+        }
+
+        code {
+            background-color: #f1f5f9;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            color: #d946ef;
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        pre code {
+            background-color: transparent;
+            color: inherit;
+            padding: 0;
+        }
+
+        .note {
+            background-color: #eff6ff;
+            border-left: 4px solid var(--primary-color);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .scenario {
+            background-color: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+
+        .scenario-title {
+            font-weight: bold;
+            color: #166534;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        th, td {
+            border: 1px solid #e2e8f0;
+            padding: 0.75rem;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: var(--secondary-color);
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 4rem;
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>LLM Ensemble Guide</h1>
+            <p>Your comprehensive manual for combining the power of multiple AI models.</p>
+        </header>
+
+        <section id="intro">
+            <h2>👋 Welcome!</h2>
+            <p><strong>LLM Ensemble</strong> is a powerful CLI tool that orchestrates multiple AI models to solve complex problems. By aggregating insights from different "viewpoints" (models or iterations), it produces a synthesized, high-quality final answer that is often superior to any single model's output.</p>
+        </section>
+
+        <section id="getting-started">
+            <h2>🚀 Getting Started</h2>
+            <p>To use the tool, navigate to the project directory in your terminal.</p>
+            
+            <h3>The Anatomy of a Command</h3>
+            <p>A typical command looks like this:</p>
+            <pre><code>./llm_ensemble.sh [OPTIONS] "Your Prompt"</code></pre>
+            
+            <p>At a minimum, you must specify <strong>which models to use</strong> (<code>-m</code>) and <strong>how many times</strong> to ask them (<code>-n</code>).</p>
+        </section>
+
+        <section id="examples">
+            <h2>💡 Common Use Cases</h2>
+            
+            <div class="scenario">
+                <span class="scenario-title">1. The "Quick Check" (Basic Usage)</span>
+                <p><strong>Goal:</strong> Get a quick second opinion on a simple question.</p>
+                <pre><code>./llm_ensemble.sh -m gemini,codex -n 1 "What is the capital of Australia?"</code></pre>
+                <p><strong>Result:</strong> Runs Gemini once and Codex once. Merges the two answers into a final text output.</p>
+            </div>
+
+            <div class="scenario">
+                <span class="scenario-title">2. The "Deep Thinker" (Complex Problem Solving)</span>
+                <p><strong>Goal:</strong> Solve a difficult logic puzzle or debugging issue requiring intense reasoning.</p>
+                <pre><code>./llm_ensemble.sh \
+  -m codex \
+  -n 3 \
+  --codex-reasoning high \
+  "Solve this riddle: I speak without a mouth and hear without ears..."</code></pre>
+                <p><strong>What happens:</strong></p>
+                <ul>
+                    <li>Uses only the <strong>Codex</strong> model.</li>
+                    <li>Runs it <strong>3 separate times</strong> to generate diverse thought processes.</li>
+                    <li>Enables <strong>high reasoning</strong> effort for better logic.</li>
+                    <li>Merges the 3 variations into a definitive answer.</li>
+                </ul>
+            </div>
+
+            <div class="scenario">
+                <span class="scenario-title">3. The "File Processor" (Large Inputs)</span>
+                <p><strong>Goal:</strong> Process a large block of text or code stored in a file.</p>
+                <pre><code>./llm_ensemble.sh -m gemini -n 1 -f huge_log_file.txt</code></pre>
+                <p><strong>Tip:</strong> The <code>-f</code> flag automatically handles file encoding (converting to UTF-8 if needed) and ensures the file isn't binary.</p>
+            </div>
+
+            <div class="scenario">
+                <span class="scenario-title">4. The "Legal Professional" (Formatted Output)</span>
+                <p><strong>Goal:</strong> Draft a contract and save it as a document you can edit in Word.</p>
+                <pre><code>./llm_ensemble.sh -m codex -n 1 "Draft a standard NDA" --format rtf</code></pre>
+                <p><strong>Result:</strong> Silences the terminal output and saves <code>final.rtf</code> in the output folder. Open this file directly in Microsoft Word.</p>
+            </div>
+
+            <div class="scenario">
+                <span class="scenario-title">5. The "Custom Synthesizer" (Control the Merge)</span>
+                <p><strong>Goal:</strong> You don't want a standard answer; you want a specific format (e.g., a table, a poem, or a translation).</p>
+                <pre><code>./llm_ensemble.sh -m gemini,codex -n 2 "List pros and cons of remote work" \
+  --merge-prompt "Combine these points into a Markdown table with columns 'Pro' and 'Con'."</code></pre>
+                <p><strong>Result:</strong> The final output will strictly follow your custom instruction instead of the default generic merge behavior.</p>
+            </div>
+
+            <div class="scenario">
+                <span class="scenario-title">6. The "Power User" (Full Configuration)</span>
+                <p><strong>Goal:</strong> Specific model versions, custom output path, timeouts, and a file-based merge instruction.</p>
+                <pre><code>./llm_ensemble.sh \
+  -m "gemini:gemini-1.5-pro,codex:gpt-4o" \
+  -n 5 \
+  --timeout 600 \
+  -o ./my_project_analysis \
+  --merge-prompt-file ./instructions/summarize_style.txt \
+  -f ./src/main.py</code></pre>
+                <p><strong>Breakdown:</strong></p>
+                <ul>
+                    <li><code>-m "..."</code>: specific model versions.</li>
+                    <li><code>-n 5</code>: 5 iterations per model (10 total drafts!).</li>
+                    <li><code>--timeout 600</code>: Allows 10 minutes per run (good for huge tasks).</li>
+                    <li><code>-o ...</code>: Saves everything to a specific folder named <code>my_project_analysis</code>.</li>
+                    <li><code>--merge-prompt-file</code>: Reads the merge instructions from a file.</li>
+                    <li><code>-f ...</code>: Reads the input prompt from <code>main.py</code>.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="reference">
+            <h2>📚 Full Options Reference</h2>
+            <p>Here is every flag you can use with <code>llm_ensemble.sh</code>.</p>
+
+            <h3>Essential Flags</h3>
+            <table>
+                <tr>
+                    <th>Flag</th>
+                    <th>Description</th>
+                    <th>Example</th>
+                </tr>
+                <tr>
+                    <td><code>-m, --models</code></td>
+                    <td><strong>Required.</strong> Comma-separated list of providers. Can include specific models (<code>provider:model_name</code>).</td>
+                    <td><code>-m gemini,codex</code><br><code>-m codex:gpt-4o</code></td>
+                </tr>
+                <tr>
+                    <td><code>-n, --iterations</code></td>
+                    <td><strong>Required.</strong> How many times to run each model.</td>
+                    <td><code>-n 3</code></td>
+                </tr>
+                <tr>
+                    <td><code>-p, --prompt</code></td>
+                    <td>Input prompt text (if not using a file).</td>
+                    <td><code>-p "Explain AI"</code></td>
+                </tr>
+                <tr>
+                    <td><code>-f, --prompt-file</code></td>
+                    <td>Path to a file containing the prompt.</td>
+                    <td><code>-f data.txt</code></td>
+                </tr>
+                <tr>
+                    <td><em>(Positional)</em></td>
+                    <td>You can just type the prompt at the end without <code>-p</code>.</td>
+                    <td><code>./script.sh ... "Hello"</code></td>
+                </tr>
+            </table>
+
+            <h3>Advanced Configuration</h3>
+            <table>
+                <tr>
+                    <th>Flag</th>
+                    <th>Description</th>
+                    <th>Default</th>
+                </tr>
+                <tr>
+                    <td><code>-o, --outdir</code></td>
+                    <td>Custom directory to save results.</td>
+                    <td><code>llm_ensemble_DATE_TIME</code></td>
+                </tr>
+                <tr>
+                    <td><code>--format</code></td>
+                    <td>Output format: <code>txt</code> (plain text) or <code>rtf</code> (Rich Text).</td>
+                    <td><code>txt</code></td>
+                </tr>
+                <tr>
+                    <td><code>--timeout</code></td>
+                    <td>Max time (seconds) per model run.</td>
+                    <td>300</td>
+                </tr>
+                <tr>
+                    <td><code>--require-git</code></td>
+                    <td>Ensures Codex checks for a git repo (safety check).</td>
+                    <td><em>Disabled (checks skipped)</em></td>
+                </tr>
+            </table>
+
+            <h3>Model Tuning</h3>
+            <table>
+                <tr>
+                    <th>Flag</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><code>--codex-reasoning</code></td>
+                    <td>Set reasoning effort: <code>minimal</code>, <code>low</code>, <code>medium</code>, <code>high</code>, <code>xhigh</code>.</td>
+                </tr>
+                <tr>
+                    <td><code>--gemini-model</code></td>
+                    <td>Set the default model name for Gemini.</td>
+                </tr>
+                <tr>
+                    <td><code>--codex-model</code></td>
+                    <td>Set the default model name for Codex.</td>
+                </tr>
+            </table>
+
+            <h3>Merge Tuning</h3>
+            <p>These flags control the final step where answers are combined.</p>
+            <table>
+                <tr>
+                    <th>Flag</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><code>--merge-prompt</code></td>
+                    <td>Custom text instruction for the final merger.</td>
+                </tr>
+                <tr>
+                    <td><code>--merge-prompt-file</code></td>
+                    <td>File containing custom instruction for the final merger.</td>
+                </tr>
+                <tr>
+                    <td><code>--merge-codex-model</code></td>
+                    <td>Specific Codex model to use <em>only</em> for merging.</td>
+                </tr>
+                <tr>
+                    <td><code>--merge-reasoning</code></td>
+                    <td>Reasoning effort <em>only</em> for the merge step.</td>
+                </tr>
+            </table>
+        </section>
+
+        <footer>
+            <p>Made with ❤️ by the LLM Ensemble Team</p>
+        </footer>
+    </div>
+</body>
+</html>

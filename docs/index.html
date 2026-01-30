@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Ensemble - User Guide</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --sidebar-bg: #0f172a;
+            --sidebar-text: #e2e8f0;
+            --bg: #f8fafc;
+            --text: #334155;
+            --heading: #1e293b;
+            --border: #e2e8f0;
+            --code-bg: #1e293b;
+            --code-text: #f1f5f9;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background: var(--bg);
+            margin: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .brand {
+            padding: 1.5rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: white;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .brand span { color: var(--primary); }
+
+        .nav {
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: #94a3b8;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-size: 0.95rem;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background: rgba(255,255,255,0.05);
+            color: white;
+        }
+        
+        .nav-link.active {
+            border-left: 3px solid var(--primary);
+        }
+
+        .nav-section {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            margin: 1.5rem 1rem 0.5rem;
+            font-weight: 600;
+        }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            margin-left: 280px; /* Width of sidebar */
+            padding: 0;
+            max-width: 100%;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        /* Typography */
+        h1, h2, h3 { color: var(--heading); margin-top: 2rem; }
+        h1 { font-size: 2.5rem; margin-top: 0; border-bottom: 2px solid var(--border); padding-bottom: 1rem; }
+        h2 { font-size: 1.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+        h3 { font-size: 1.25rem; font-weight: 600; }
+        
+        p { margin-bottom: 1.5rem; }
+        
+        a { color: var(--primary); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* Code Blocks */
+        pre {
+            background: var(--code-bg);
+            color: var(--code-text);
+            padding: 1.25rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            border: 1px solid #334155;
+        }
+        
+        code {
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            background: #e2e8f0;
+            color: #0f172a;
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        
+        pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+
+        /* Components */
+        .alert {
+            background: #eff6ff;
+            border-left: 4px solid var(--primary);
+            padding: 1rem 1.5rem;
+            border-radius: 0 6px 6px 0;
+            margin: 1.5rem 0;
+        }
+        
+        .alert-title {
+            font-weight: 600;
+            color: #1e40af;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { 
+                width: 100%; 
+                position: relative; 
+                height: auto; 
+                padding-bottom: 1rem;
+            }
+            .main { margin-left: 0; }
+            .container { padding: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="sidebar">
+    <div class="brand">
+        <span>⚡</span> LLM Ensemble
+    </div>
+    <div class="nav">
+        <a href="#intro" class="nav-link active">Introduction</a>
+        <a href="#install" class="nav-link">Installation</a>
+        <a href="#quickstart" class="nav-link">Quick Start</a>
+        
+        <div class="nav-section">Tutorials</div>
+        <a href="#scenario-basic" class="nav-link">1. Quick Check</a>
+        <a href="#scenario-deep" class="nav-link">2. Deep Reasoning</a>
+        <a href="#scenario-files" class="nav-link">3. Processing Files</a>
+        
+        <div class="nav-section">More</div>
+        <a href="reference.html" class="nav-link">Technical Reference ↗</a>
+    </div>
+</nav>
+
+<main class="main">
+    <div class="container">
+        
+        <section id="intro">
+            <h1>Orchestrate Your AI Workforce</h1>
+            <p>
+                <strong>LLM Ensemble</strong> is a command-line tool designed for software engineers and researchers who need higher quality answers than a single AI model can provide. 
+            </p>
+            <p>
+                By running multiple models (Gemini, Codex) in parallel or iteratively, and then using a "Judge" model to synthesize the results, 
+                LLM Ensemble reduces hallucinations, catches logic errors, and provides comprehensive solutions.
+            </p>
+            
+            <div class="feature-grid">
+                <div class="card">
+                    <h3>🚀 Parallel Execution</h3>
+                    <p>Python-based concurrency runs multiple model instances simultaneously, saving you time.</p>
+                </div>
+                <div class="card">
+                    <h3>🧠 Synthesis Engine</h3>
+                    <p>Doesn't just dump outputs. It merges them into a single, coherent, high-quality response.</p>
+                </div>
+                <div class="card">
+                    <h3>📄 File & Format Support</h3>
+                    <p>Handles large file inputs automatically and can export polished RTF documents.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="install">
+            <h2>Installation & Requirements</h2>
+            <div class="alert">
+                <span class="alert-title">Prerequisites</span>
+                Ensure you have <strong>Python 3.8+</strong> installed. You also need the proprietary <code>gemini</code> and <code>codex</code> CLI tools available in your system PATH.
+            </div>
+            
+            <p>No pip installation is required for the tool itself. It uses the standard library.</p>
+            
+            <pre><code># 1. Check Python version
+python3 --version
+
+# 2. Verify external tools
+which gemini
+which codex
+
+# 3. Make the script executable (optional)
+chmod +x llm_ensemble.py</code></pre>
+        </section>
+
+        <section id="quickstart">
+            <h2>Quick Start</h2>
+            <p>The most basic usage requires defining the models to use (<code>-m</code>) and the number of iterations (<code>-n</code>).</p>
+            
+            <pre><code>python3 llm_ensemble.py -m gemini,codex -n 1 "Why is the sky blue?"</code></pre>
+            
+            <p><strong>What just happened?</strong></p>
+            <ol>
+                <li>The tool ran <strong>Gemini</strong> once.</li>
+                <li>The tool ran <strong>Codex</strong> once (in parallel).</li>
+                <li>It gathered both answers.</li>
+                <li>It used a "Merger" model (Codex) to combine them into one final explanation.</li>
+                <li>It saved everything in a timestamped folder <code>./llm_ensemble_YYYYMMDD_.../</code>.</li>
+            </ol>
+        </section>
+
+        <hr style="margin: 3rem 0; border: 0; border-top: 1px solid #e2e8f0;">
+
+        <section id="scenarios">
+            <h2>Common Scenarios</h2>
+
+            <div id="scenario-basic" class="card">
+                <h3>Scenario 1: The Code Review</h3>
+                <p>You want multiple opinions on a snippet of code to find bugs.</p>
+                <pre><code>python3 llm_ensemble.py \
+  -m gemini,codex \
+  -n 2 \
+  -f buggy_function.py</code></pre>
+                <p><strong>Outcome:</strong> You get 4 total critiques (2 from Gemini, 2 from Codex). The final output synthesizes all identified bugs into a clean list.</p>
+            </div>
+
+            <div id="scenario-deep" class="card">
+                <h3>Scenario 2: The Logic Puzzle</h3>
+                <p>For complex reasoning, you can force the Codex model to "think harder" using the reasoning flag.</p>
+                <pre><code>python3 llm_ensemble.py \
+  -m codex \
+  -n 3 \
+  --codex-reasoning high \
+  "Solve this riddle: I speak without a mouth..."</code></pre>
+                <p><strong>Outcome:</strong> Uses only Codex, but runs it 3 times with high reasoning effort. The merge step consolidates the logic to ensure the correct answer.</p>
+            </div>
+
+            <div id="scenario-files" class="card">
+                <h3>Scenario 3: Generating Documentation (RTF)</h3>
+                <p>Need a formatted document to share with a manager? Output directly to RTF.</p>
+                <pre><code>python3 llm_ensemble.py \
+  -m gemini \
+  -n 1 \
+  --format rtf \
+  "Draft a project proposal for a new API"</code></pre>
+                <p><strong>Outcome:</strong> A <code>final.rtf</code> file is created in the output directory, ready to open in Word or TextEdit.</p>
+            </div>
+        </section>
+
+        <footer style="margin-top: 4rem; text-align: center; color: #64748b; font-size: 0.9rem;">
+            <p>Next Step: View the <a href="reference.html">Technical Reference</a> for all available flags.</p>
+        </footer>
+
+    </div>
+</main>
+
+</body>
+</html>

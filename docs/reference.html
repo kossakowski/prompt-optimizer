@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Ensemble - Technical Reference</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --sidebar-bg: #0f172a;
+            --sidebar-text: #e2e8f0;
+            --bg: #f8fafc;
+            --text: #334155;
+            --heading: #1e293b;
+            --border: #e2e8f0;
+            --code-bg: #1e293b;
+            --code-text: #f1f5f9;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background: var(--bg);
+            margin: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .brand {
+            padding: 1.5rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: white;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .brand span { color: var(--primary); }
+
+        .nav {
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: #94a3b8;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-size: 0.95rem;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background: rgba(255,255,255,0.05);
+            color: white;
+        }
+        
+        .nav-link.active {
+            border-left: 3px solid var(--primary);
+        }
+
+        .nav-section {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            margin: 1.5rem 1rem 0.5rem;
+            font-weight: 600;
+        }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            margin-left: 280px; /* Width of sidebar */
+            padding: 0;
+            max-width: 100%;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        /* Typography */
+        h1, h2, h3 { color: var(--heading); margin-top: 2rem; }
+        h1 { font-size: 2.5rem; margin-top: 0; border-bottom: 2px solid var(--border); padding-bottom: 1rem; }
+        h2 { font-size: 1.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+        h3 { font-size: 1.25rem; font-weight: 600; }
+        
+        p { margin-bottom: 1.5rem; }
+        
+        a { color: var(--primary); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: #f1f5f9;
+            color: #475569;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background: #f8fafc; }
+
+        code {
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            background: #e2e8f0;
+            color: #0f172a;
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { 
+                width: 100%; 
+                position: relative; 
+                height: auto; 
+                padding-bottom: 1rem;
+            }
+            .main { margin-left: 0; }
+            .container { padding: 1.5rem; }
+            table { display: block; overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="sidebar">
+    <div class="brand">
+        <span>⚡</span> LLM Ensemble
+    </div>
+    <div class="nav">
+        <a href="index.html" class="nav-link">← User Guide</a>
+        
+        <div class="nav-section">Reference</div>
+        <a href="#cli-flags" class="nav-link active">CLI Flags</a>
+        <a href="#architecture" class="nav-link">Architecture</a>
+        <a href="#outputs" class="nav-link">Output Artifacts</a>
+        <a href="#errors" class="nav-link">Troubleshooting</a>
+    </div>
+</nav>
+
+<main class="main">
+    <div class="container">
+        
+        <section id="cli-flags">
+            <h1>Technical Reference</h1>
+            
+            <h2>CLI Argument Reference</h2>
+            <p>The following table lists all arguments accepted by <code>llm_ensemble.py</code>.</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 30%">Flag / Argument</th>
+                        <th style="width: 15%">Required</th>
+                        <th style="width: 20%">Default</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>-m, --models</code></td>
+                        <td>Yes</td>
+                        <td>-</td>
+                        <td>Comma-separated list (e.g., <code>gemini,codex:gpt-4</code>).</td>
+                    </tr>
+                    <tr>
+                        <td><code>-n, --iterations</code></td>
+                        <td>Yes</td>
+                        <td>-</td>
+                        <td>Number of runs per model (Integer > 0).</td>
+                    </tr>
+                    <tr>
+                        <td><code>-p, --prompt</code></td>
+                        <td>No*</td>
+                        <td>-</td>
+                        <td>Input text. Mutually exclusive with <code>-f</code>.</td>
+                    </tr>
+                    <tr>
+                        <td><code>-f, --prompt-file</code></td>
+                        <td>No*</td>
+                        <td>-</td>
+                        <td>Path to input file. Auto-detects encoding.</td>
+                    </tr>
+                    <tr>
+                        <td><code>[Positional]</code></td>
+                        <td>No*</td>
+                        <td>-</td>
+                        <td>Input text if <code>-p</code> is omitted.</td>
+                    </tr>
+                    <tr>
+                        <td><code>-o, --outdir</code></td>
+                        <td>No</td>
+                        <td>Timestamped</td>
+                        <td>Directory to save all results.</td>
+                    </tr>
+                    <tr>
+                        <td><code>--gemini-model</code></td>
+                        <td>No</td>
+                        <td>gemini-3-pro-preview</td>
+                        <td>Default model for Gemini provider.</td>
+                    </tr>
+                    <tr>
+                        <td><code>--codex-model</code></td>
+                        <td>No</td>
+                        <td>gpt-5.2-codex</td>
+                        <td>Default model for Codex provider.</td>
+                    </tr>
+                    <tr>
+                        <td><code>--codex-reasoning</code></td>
+                        <td>No</td>
+                        <td>high</td>
+                        <td><code>minimal</code>, <code>low</code>, <code>medium</code>, <code>high</code>, <code>xhigh</code>.</td>
+                    </tr>
+                    <tr>
+                        <td><code>--merge-prompt</code></td>
+                        <td>No</td>
+                        <td>(Built-in)</td>
+                        <td>Custom instruction for the final merger.</td>
+                    </tr>
+                    <tr>
+                        <td><code>--timeout</code></td>
+                        <td>No</td>
+                        <td>300</td>
+                        <td>Timeout in seconds for each run.</td>
+                    </tr>
+                    <tr>
+                        <td><code>--format</code></td>
+                        <td>No</td>
+                        <td>txt</td>
+                        <td>Output format: <code>txt</code> or <code>rtf</code>.</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p><em>* One of prompt, prompt-file, or positional prompt is required.</em></p>
+        </section>
+
+        <section id="architecture">
+            <h2>System Architecture</h2>
+            <p>The Python implementation improves upon the legacy Bash script by introducing true concurrency.</p>
+            
+            <h3>Execution Flow</h3>
+            <ol>
+                <li><strong>Validation:</strong> The <code>Config</code> object is built from arguments. File paths and dependencies are checked.</li>
+                <li><strong>Parallel Execution:</strong> A <code>ThreadPoolExecutor</code> spawns tasks.
+                    <ul>
+                        <li>Each task is a unique combination of (Model, Iteration).</li>
+                        <li>Tasks invoke <code>GeminiRunner</code> or <code>CodexRunner</code>.</li>
+                        <li>Output is written atomically to <code>_run_X.txt</code> files.</li>
+                    </ul>
+                </li>
+                <li><strong>Merging:</strong>
+                    <ul>
+                        <li>All successful result files are read.</li>
+                        <li>A "Merge Prompt" is constructed (Instructions + Original Prompt + Candidates).</li>
+                        <li>The Merge Model (Codex) generates the final answer.</li>
+                    </ul>
+                </li>
+            </ol>
+        </section>
+
+        <section id="outputs">
+            <h2>Output Artifacts</h2>
+            <p>Every run creates a directory containing:</p>
+            <ul>
+                <li><code>prompt.txt</code>: The canonicalized input prompt (UTF-8).</li>
+                <li><code>[model]_run_[n].txt</code>: The raw output of a specific model iteration.</li>
+                <li><code>[model]_run_[n].log</code>: Stderr logs (useful for debugging timeouts/crashes).</li>
+                <li><code>merge_prompt.txt</code>: The exact prompt sent to the merger model.</li>
+                <li><code>final.txt</code>: The final synthesized answer.</li>
+                <li><code>final.rtf</code>: (Optional) The formatted document if <code>--format rtf</code> was used.</li>
+            </ul>
+        </section>
+
+        <section id="errors">
+            <h2>Troubleshooting</h2>
+            
+            <h3>"Prompt file appears to be binary"</h3>
+            <p>The tool detected null bytes in your input file. Ensure it is a valid text file.</p>
+            
+            <h3>Timeout Errors</h3>
+            <p>If models are timing out (default 300s), increase the limit using <code>--timeout 600</code>.</p>
+            
+            <h3>"codex command not found"</h3>
+            <p>The tool relies on the <code>codex</code> binary being in your system <code>PATH</code>. Verify installation.</p>
+        </section>
+
+        <footer style="margin-top: 4rem; text-align: center; color: #64748b; font-size: 0.9rem;">
+             <p>Back to <a href="index.html">User Guide</a></p>
+        </footer>
+
+    </div>
+</main>
+
+</body>
+</html>
