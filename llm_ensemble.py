@@ -11,7 +11,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, Callable
 
 # --- Configuration & Defaults ---
 DEFAULT_GEMINI_MODEL = "gemini-3-pro-preview"
@@ -150,12 +150,17 @@ class CodexRunner(LLMRunner):
 
 # --- Main Application ---
 class EnsembleApp:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, logger: Optional[Callable[[str], None]] = None):
         self.cfg = config
         self.gemini_runner = GeminiRunner()
         self.codex_runner = CodexRunner()
         self.runners_list = [] # List of tuples: (provider, model, label)
         self.merge_codex_model = ""
+        self.logger = logger or (lambda msg: None)
+
+    def log(self, message: str):
+        """Sends message to the configured logger."""
+        self.logger(message)
 
     def validate_and_setup(self):
         # 1. Output Directory
@@ -184,7 +189,7 @@ class EnsembleApp:
                 ctx_text = raw_ctx.decode('utf-8')
             except UnicodeDecodeError:
                 ctx_text = raw_ctx.decode('latin-1', errors='replace')
-                print(f"Warning: Converted context file {ctx_file} using fallback encoding.", file=sys.stderr)
+                self.log(f"Warning: Converted context file {ctx_file} using fallback encoding.")
                 
             final_prompt_content.append(f"[Context File: {ctx_file.name}]\n<<<\n{ctx_text}\n>>>\n")
 
@@ -208,7 +213,7 @@ class EnsembleApp:
                     die(f"Prompt file appears to be binary: {self.cfg.prompt_file}")
                 # Try latin-1 as fallback for non-utf8 text
                 content = raw.decode('latin-1', errors='replace')
-                print(f"Warning: Converted {self.cfg.prompt_file} to UTF-8 using fallback encoding.", file=sys.stderr)
+                self.log(f"Warning: Converted {self.cfg.prompt_file} to UTF-8 using fallback encoding.")
         
         elif self.cfg.prompt_text:
             content = self.cfg.prompt_text
@@ -288,7 +293,7 @@ class EnsembleApp:
                 out_txt = self.cfg.outdir / f"{base_name}.txt"
                 log_file = self.cfg.outdir / f"{base_name}.log"
                 
-                print(f"Scheduling {provider} model='{model}' ({i}/{self.cfg.iterations})...", file=sys.stderr)
+                self.log(f"Scheduling {provider} model='{model}' ({i}/{self.cfg.iterations})...")
                 
                 if provider == 'gemini':
                     future = executor.submit(self.gemini_runner.run, self.prompt_canon, out_txt, log_file, self.cfg.timeout, model=model)
@@ -304,7 +309,7 @@ class EnsembleApp:
                     future.result() # Wait for completion
                     results.append(out_path)
                 except Exception as e:
-                    print(f"Unexpected error in thread: {e}", file=sys.stderr)
+                    self.log(f"Unexpected error in thread: {e}")
         
         # Sort results to ensure deterministic order if needed (e.g. by name)
         results.sort(key=lambda p: p.name)
@@ -358,7 +363,7 @@ USER PROMPT:
 
         # Run Merge
         reasoning = self.cfg.merge_reasoning or self.cfg.codex_reasoning
-        print(f"Merging with Codex model='{self.merge_codex_model}' reasoning='{reasoning}'...", file=sys.stderr)
+        self.log(f"Merging with Codex model='{self.merge_codex_model}' reasoning='{reasoning}'...")
         
         self.codex_runner.run(merge_prompt_path, final_out, final_log, self.cfg.timeout, 
                               model=self.merge_codex_model, reasoning=reasoning, require_git=self.cfg.require_git)
@@ -370,14 +375,14 @@ USER PROMPT:
                 rtf_content = text_to_rtf(text)
                 rtf_path = self.cfg.outdir / "final.rtf"
                 rtf_path.write_text(rtf_content, encoding='utf-8')
-                print(f"[Generated RTF: {rtf_path}]", file=sys.stderr)
+                self.log(f"[Generated RTF: {rtf_path}]")
             else:
-                 print(f"Warning: Final output not generated, cannot convert to RTF.", file=sys.stderr)
+                 self.log("Warning: Final output not generated, cannot convert to RTF.")
         else:
             if final_out.exists():
                 print(final_out.read_text(encoding='utf-8'))
 
-        print(f"\n[Saved artifacts in: {self.cfg.outdir}]", file=sys.stderr)
+        self.log(f"\n[Saved artifacts in: {self.cfg.outdir}]")
 
 
 def parse_args() -> Config:
@@ -455,7 +460,8 @@ def parse_args() -> Config:
 
 def main():
     config = parse_args()
-    app = EnsembleApp(config)
+    # Default CLI logger prints to stderr
+    app = EnsembleApp(config, logger=lambda msg: print(msg, file=sys.stderr))
     app.validate_and_setup()
     results = app.execute_parallel()
     app.merge(results)
