@@ -437,19 +437,18 @@ USER PROMPT:
         self.codex_runner.run(merge_prompt_path, final_out, final_log, self.cfg.timeout, 
                               model=self.merge_codex_model, reasoning=reasoning, require_git=self.cfg.require_git)
         
-        # Formatting
-        if self.cfg.output_format == 'rtf':
-            if final_out.exists():
-                text = final_out.read_text(encoding='utf-8')
+        # Display and Format
+        if final_out.exists():
+            text = final_out.read_text(encoding='utf-8')
+            self.log(f"\n=== FINAL ANSWER ===\n{text}\n")
+            
+            if self.cfg.output_format == 'rtf':
                 rtf_content = text_to_rtf(text)
                 rtf_path = self.cfg.outdir / "final.rtf"
                 rtf_path.write_text(rtf_content, encoding='utf-8')
                 self.log(f"[Generated RTF: {rtf_path}]")
-            else:
-                 self.log("Warning: Final output not generated, cannot convert to RTF.")
         else:
-            if final_out.exists():
-                print(final_out.read_text(encoding='utf-8'))
+             self.log("Warning: Final output not generated.")
 
         self.log(f"\n[Saved artifacts in: {self.cfg.outdir}]")
 
