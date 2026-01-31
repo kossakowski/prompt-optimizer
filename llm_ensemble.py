@@ -76,6 +76,8 @@ class Config:
     timeout: int
     output_format: str
     require_git: bool
+    generate_pre_report: bool
+    generate_post_report: bool
 
 # --- Utils ---
 def die(message: str):
@@ -141,6 +143,55 @@ def create_docx(text: str, output_path: Path):
         zf.writestr('[Content_Types].xml', content_types)
         zf.writestr('_rels/.rels', rels)
         zf.writestr('word/document.xml', document_xml)
+
+def generate_html_report(title: str, sections: List[Dict[str, str]], output_path: Path):
+    """Generates a beautiful HTML report."""
+    css = """
+    :root { --primary: #2563eb; --bg: #f8fafc; --card-bg: #ffffff; --text: #1e293b; }
+    body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; background: var(--bg); color: var(--text); margin: 0; padding: 2rem; }
+    .container { max-width: 900px; margin: 0 auto; }
+    h1 { color: var(--primary); border-bottom: 2px solid #e2e8f0; padding-bottom: 1rem; }
+    .card { background: var(--card-bg); border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 2rem; overflow: hidden; }
+    .card-header { background: #f1f5f9; padding: 1rem 1.5rem; font-weight: bold; color: #334155; border-bottom: 1px solid #e2e8f0; }
+    .card-body { padding: 1.5rem; overflow-x: auto; }
+    pre { background: #1e293b; color: #f8fafc; padding: 1rem; border-radius: 6px; white-space: pre-wrap; word-wrap: break-word; }
+    """
+    
+    html_parts = [f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <style>{css}</style>
+</head>
+<body>
+    <div class="container">
+        <h1>{title}</h1>
+"""]
+
+    for section in sections:
+        content = section.get('content', '')
+        # Simple auto-formatting: if it looks like code, wrap in pre, else generic div
+        if section.get('is_code', False):
+            formatted_content = f"<pre>{content}</pre>"
+        else:
+            # Convert newlines to breaks for basic text
+            formatted_content = f"<div>{content.replace(chr(10), '<br>')}</div>"
+            
+        html_parts.append(f"""
+        <div class="card">
+            <div class="card-header">{section.get('title', 'Section')}</div>
+            <div class="card-body">{formatted_content}</div>
+        </div>
+""")
+
+    html_parts.append("""
+    </div>
+</body>
+</html>""")
+    
+    output_path.write_text("".join(html_parts), encoding='utf-8')
 
 # --- Runners ---
 class LLMRunner:
@@ -549,6 +600,23 @@ USER PROMPT:
             
             f.write("\n\nFINAL ANSWER (output only this):\n")
 
+        # --- PRE-REPORT ---
+        if self.cfg.generate_pre_report:
+            sections = [
+                {"title": "Merge Instruction", "content": instruction},
+                {"title": "Original Prompt & Context", "content": self.prompt_canon.read_text(encoding='utf-8'), "is_code": True},
+            ]
+            if merge_ctx_block:
+                sections.append({"title": "Merge Context", "content": merge_ctx_block, "is_code": True})
+            
+            # Add Candidates
+            for res_file in result_files:
+                c_content = res_file.read_text(encoding='utf-8', errors='replace') if res_file.exists() else "[Missing]"
+                sections.append({"title": f"Candidate: {res_file.name}", "content": c_content, "is_code": True})
+                
+            generate_html_report("LLM Ensemble: Pre-Merge Report", sections, self.cfg.outdir / "pre_report.html")
+            self.log(f"[Generated Pre-Report: {self.cfg.outdir / 'pre_report.html'}]")
+
         # Run Merge
         reasoning = self.cfg.merge_reasoning or self.cfg.codex_reasoning
         merge_model = self.merge_codex_model
@@ -564,12 +632,13 @@ USER PROMPT:
                                   model=merge_model, reasoning=reasoning, require_git=self.cfg.require_git)
         
         # Display and Format
+        final_text = ""
         if success and final_out.exists():
-            text = final_out.read_text(encoding='utf-8')
-            self.log(f"\n=== FINAL ANSWER ===\n{text}\n")
+            final_text = final_out.read_text(encoding='utf-8')
+            self.log(f"\n=== FINAL ANSWER ===\n{final_text}\n")
             
             if self.cfg.output_format == 'rtf':
-                rtf_content = text_to_rtf(text)
+                rtf_content = text_to_rtf(final_text)
                 rtf_path = self.cfg.outdir / "final.rtf"
                 rtf_path.write_text(rtf_content, encoding='utf-8')
                 self.log(f"[Generated RTF: {rtf_path}]")
@@ -577,13 +646,29 @@ USER PROMPT:
             elif self.cfg.output_format == 'docx':
                 docx_path = self.cfg.outdir / "final.docx"
                 try:
-                    create_docx(text, docx_path)
+                    create_docx(final_text, docx_path)
                     self.log(f"[Generated DOCX: {docx_path}]")
                 except Exception as e:
                     self.log(f"Error creating DOCX: {e}")
 
         else:
              self.log("Warning: Final output not generated.")
+
+        # --- POST-REPORT ---
+        if self.cfg.generate_post_report:
+            sections = [
+                {"title": "Final Answer", "content": final_text or "[No Output Generated]", "is_code": False},
+                {"title": "Execution Summary", "content": f"Output Directory: {self.cfg.outdir}\nModels: {self.cfg.models_csv}\nIterations: {self.cfg.iterations}"}
+            ]
+            
+            # Include Merge Logs if any
+            if final_log.exists():
+                log_content = final_log.read_text(encoding='utf-8').strip()
+                if log_content:
+                    sections.append({"title": "Merge Logs/Errors", "content": log_content, "is_code": True})
+            
+            generate_html_report("LLM Ensemble: Post-Merge Report", sections, self.cfg.outdir / "post_report.html")
+            self.log(f"[Generated Post-Report: {self.cfg.outdir / 'post_report.html'}]")
 
         self.log(f"\n[Saved artifacts in: {self.cfg.outdir}]")
 
@@ -622,6 +707,11 @@ def parse_args() -> Config:
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help=f"Timeout seconds (default: {DEFAULT_TIMEOUT})")
     parser.add_argument("--format", dest="output_format", choices=['txt', 'rtf', 'docx'], default="txt", help="Output format")
     parser.add_argument("--require-git", action="store_true", help="Enable Codex git repo check")
+    
+    # Report flags (Defaults true for GUI parity, but let's make them flags here)
+    parser.add_argument("--no-pre-report", action="store_false", dest="generate_pre_report", help="Disable Pre-Merge HTML Report")
+    parser.add_argument("--no-post-report", action="store_false", dest="generate_post_report", help="Disable Post-Merge HTML Report")
+    parser.set_defaults(generate_pre_report=True, generate_post_report=True)
 
     args = parser.parse_args()
 
@@ -666,7 +756,9 @@ def parse_args() -> Config:
         merge_context_files=args.merge_context_files or [],
         timeout=args.timeout,
         output_format=args.output_format,
-        require_git=args.require_git
+        require_git=args.require_git,
+        generate_pre_report=args.generate_pre_report,
+        generate_post_report=args.generate_post_report
     )
 
 def main():

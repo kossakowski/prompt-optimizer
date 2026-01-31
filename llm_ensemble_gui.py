@@ -73,6 +73,14 @@ class EnsembleGUI:
         # Run Button
         self.run_btn = ttk.Button(frame, text="RUN ENSEMBLE", command=self.start_thread)
         self.run_btn.pack(fill=tk.X, pady=10)
+        
+        # Report Checkboxes (Bottom of Execution Tab)
+        report_frame = ttk.Frame(frame)
+        report_frame.pack(fill=tk.X, pady=5)
+        self.pre_report_var = tk.BooleanVar(value=True)
+        self.post_report_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(report_frame, text="Generate Pre-Report", variable=self.pre_report_var).pack(side=tk.LEFT, padx=5)
+        ttk.Checkbutton(report_frame, text="Generate Post-Report", variable=self.post_report_var).pack(side=tk.LEFT, padx=5)
 
     def create_config_tab(self):
         frame = self.tab_config
@@ -93,7 +101,7 @@ class EnsembleGUI:
         ttk.Checkbutton(model_frame, text="Use Codex", variable=self.use_codex).grid(row=1, column=0, sticky=tk.W)
         ttk.Label(model_frame, text="Model:").grid(row=1, column=1, sticky=tk.W)
         self.codex_model_var = tk.StringVar(value=llm_ensemble.DEFAULT_CODEX_MODEL)
-        codex_cb = ttk.Combobox(config_frame, textvariable=self.codex_model_var, values=llm_ensemble.CODEX_KNOWN_MODELS)
+        codex_cb = ttk.Combobox(model_frame, textvariable=self.codex_model_var, values=llm_ensemble.CODEX_KNOWN_MODELS)
         codex_cb.grid(row=1, column=2, sticky=tk.EW, padx=5)
         codex_cb.bind("<<ComboboxSelected>>", self.update_reasoning_options)
         
@@ -268,7 +276,9 @@ class EnsembleGUI:
                 merge_context_files=merge_ctx_files,
                 timeout=timeout,
                 output_format=out_format,
-                require_git=False
+                require_git=False,
+                generate_pre_report=self.pre_report_var.get(),
+                generate_post_report=self.post_report_var.get()
             )
             
             # Run App
