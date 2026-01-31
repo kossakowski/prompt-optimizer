@@ -47,6 +47,13 @@ python3 llm_ensemble.py -m gemini,codex -n 2 -p "Your prompt here"
 *   `-c, --context`: Attach additional files as context (repeatable). Supports **.txt**, **.pdf**, **.docx**.
 *   `-o, --outdir`: Directory to save artifacts. Defaults to `Outputs/llm_ensemble_<timestamp>`.
 
+## Output Structure
+Every run creates a timestamped folder containing:
+*   **`Runs/`**: Subdirectory containing individual model outputs and logs.
+*   **`final.txt`**: The final synthesized answer.
+*   **`prompt.txt`**: The complete prompt sent to the models.
+*   **`merge_prompt.txt`**: The instruction used for the final merge step.
+
 ## Running Tests
 To verify the logic (argument parsing, file handling, merge prompt construction) without calling external APIs:
 ```bash

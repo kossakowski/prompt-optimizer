@@ -1,7 +1,5 @@
 Major stuff: 
-- file outputs in a separate folder called "Outputs"; move all current outputs to this file
-- importing also pdf files with text 
-- subfolders in the output folder - folder with all the candidate answers 
+- subfolders in the output folder - folder with all the candidate answers
 - output in the textbox, if otherwise specified
 
 Minor stuff: 

@@ -223,6 +223,13 @@ class EnsembleApp:
             except OSError as e:
                 die(f"Cannot create outdir: {self.cfg.outdir} - {e}")
         
+        # Create Runs subdirectory
+        self.runs_dir = self.cfg.outdir / "Runs"
+        try:
+            self.runs_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            die(f"Cannot create runs dir: {self.runs_dir} - {e}")
+        
         # 2. Prompt Processing
         self.prompt_canon = self.cfg.outdir / "prompt.txt"
         
@@ -351,8 +358,8 @@ class EnsembleApp:
             for t in tasks:
                 provider, model, label, i = t
                 base_name = f"{label}_run_{i}"
-                out_txt = self.cfg.outdir / f"{base_name}.txt"
-                log_file = self.cfg.outdir / f"{base_name}.log"
+                out_txt = self.runs_dir / f"{base_name}.txt"
+                log_file = self.runs_dir / f"{base_name}.log"
                 
                 self.log(f"Scheduling {provider} model='{model}' ({i}/{self.cfg.iterations})...")
                 

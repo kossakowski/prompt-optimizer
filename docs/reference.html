@@ -315,9 +315,13 @@
             <h2>Output Artifacts</h2>
             <p>Every run creates a directory containing:</p>
             <ul>
+                <li><code>Runs/</code>: Subdirectory containing individual iteration files:
+                    <ul>
+                        <li><code>[model]_run_[n].txt</code>: Raw output.</li>
+                        <li><code>[model]_run_[n].log</code>: Stderr logs.</li>
+                    </ul>
+                </li>
                 <li><code>prompt.txt</code>: The canonicalized input prompt (UTF-8).</li>
-                <li><code>[model]_run_[n].txt</code>: The raw output of a specific model iteration.</li>
-                <li><code>[model]_run_[n].log</code>: Stderr logs (useful for debugging timeouts/crashes).</li>
                 <li><code>merge_prompt.txt</code>: The exact prompt sent to the merger model.</li>
                 <li><code>final.txt</code>: The final synthesized answer.</li>
                 <li><code>final.rtf</code>: (Optional) The formatted document if <code>--format rtf</code> was used.</li>

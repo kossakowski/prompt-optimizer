@@ -146,9 +146,23 @@ class TestLLMEnsemble(unittest.TestCase):
         config.gemini_model = "def-gemini"
         config.codex_model = "def-codex"
         config.timeout = 10
+        config.context_files = [] 
+        config.prompt_text = "Test Prompt" # Ensure this is a string
+        config.prompt_file = None
         
         app = llm_ensemble.EnsembleApp(config)
-        # Manually populate runners list as if validate_and_setup ran
+        
+        # Mock directory creation AND file writing
+        with patch.object(Path, 'exists', return_value=False), \
+             patch.object(Path, 'mkdir') as mock_mkdir, \
+             patch.object(Path, 'write_text'): # Mock writing prompt.txt
+             
+            app.validate_and_setup()
+            # Check if Runs dir was created
+            # mkdir is called for outdir and outdir/Runs
+            self.assertTrue(mock_mkdir.call_count >= 2)
+            
+        # Manually populate runners list as if validate_and_setup ran (partially mocked above)
         app.runners_list = [('gemini', 'm1', 'label')]
         app.prompt_canon = Path("/tmp/prompt.txt")
         
@@ -169,6 +183,10 @@ class TestLLMEnsemble(unittest.TestCase):
             
             self.assertEqual(len(results), 2) # 2 iterations
             self.assertEqual(mock_executor_instance.submit.call_count, 2)
+            
+            # Check that paths are in Runs subdirectory
+            first_result_path = results[0]
+            self.assertEqual(first_result_path.parent.name, "Runs")
 
     @patch('llm_ensemble.CodexRunner')
     def test_merge_logic(self, MockCodexRunner):
