@@ -1,0 +1,23 @@
+OpenAI Codex v0.93.0 (research preview)
+--------
+workdir: /home/kossa/code/adv-llm-ensemble
+model: gpt-5.2-codex
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: xhigh
+reasoning summaries: auto
+session id: 019c1433-7c32-7873-858e-849a7f465e2b
+--------
+user
+Reply with 'OK'
+mcp startup: no servers
+
+thinking
+**Confirming instructions**
+
+Acknowledging the instruction to reply with OK and no tool usage.
+codex
+OK
+tokens used
+1,290

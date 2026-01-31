@@ -25,9 +25,80 @@ class TestLLMEnsemble(unittest.TestCase):
         self.assertIn(r"{\rtf1", rtf)
         self.assertIn("Hello\\par\nWorld", rtf)
 
+    @patch('zipfile.ZipFile')
+    def test_docx_generation(self, MockZipFile):
+        """Verify that create_docx writes the correct XML files to a zip."""
+        mock_zip = MockZipFile.return_value.__enter__.return_value
+        
+        text = "Hello\nWorld"
+        out_path = Path("output.docx")
+        
+        llm_ensemble.create_docx(text, out_path)
+        
+        # Verify calls to writestr
+        # Should write [Content_Types], .rels, and document.xml
+        self.assertTrue(mock_zip.writestr.call_count >= 3)
+        
+        # Check document.xml content
+        args_list = mock_zip.writestr.call_args_list
+        doc_xml_call = [call for call in args_list if call[0][0] == 'word/document.xml'][0]
+        content = doc_xml_call[0][1]
+        
+        self.assertIn("<w:t>Hello</w:t>", content)
+        self.assertIn("<w:t>World</w:t>", content)
+        self.assertIn("<w:document", content)
+
+        self.assertIn("<w:t>World</w:t>", content)
+        self.assertIn("<w:document", content)
+
+    @patch('llm_ensemble.CodexRunner')
+    def test_merge_context_files(self, MockCodexRunner):
+        """Verify that merge context files are processed and included in the final merge prompt."""
+        # Setup files
+        ctx_file = MagicMock(spec=Path); ctx_file.exists.return_value = True; ctx_file.name = "merge_ctx.txt"; ctx_file.suffix = ".txt"
+        ctx_file.read_bytes.return_value = b"MERGE_CONTEXT_CONTENT"
+        
+        config = MagicMock()
+        config.outdir = Path("/tmp/out")
+        config.models_csv = "gemini"; config.gemini_model = "g"; config.codex_model = "c"
+        config.iterations = 1
+        config.merge_context_files = [ctx_file]
+        config.merge_prompt_text = "Merge Instruction"
+        config.merge_prompt_file = None # Explicitly None
+        config.context_files = [] # Main context
+        config.prompt_text = "Main Prompt"
+        config.merge_provider = "codex"
+        
+        app = llm_ensemble.EnsembleApp(config)
+        app.prompt_canon = MagicMock()
+        app.prompt_canon.read_text.return_value = "ORIGINAL_PROMPT"
+        app.codex_runner = MockCodexRunner.return_value
+        
+        # Mock file writing for merge prompt construction
+        with patch('builtins.open', mock_open()) as m_open:
+            app.merge([])
+            
+            # Check content written to merge_prompt.txt
+            handle = m_open()
+            written = "".join(call.args[0] for call in handle.write.call_args_list)
+            
+            self.assertIn("MERGE_CONTEXT_CONTENT", written)
+            self.assertIn("[Context File: merge_ctx.txt]", written)
+            self.assertIn("Merge Instruction", written)
+            self.assertIn("ORIGINAL_PROMPT", written)
+
     def test_sanitize_label(self):
         self.assertEqual(llm_ensemble.sanitize_label("gpt-4.0"), "gpt-4.0")
         self.assertEqual(llm_ensemble.sanitize_label("Gemini Pro @ 1.5"), "Gemini_Pro___1.5")
+
+    @patch("builtins.open", new_callable=mock_open, read_data='{"gemini_default_model": "test-gemini"}')
+    @patch("llm_ensemble.Path.exists", return_value=True)
+    def test_external_config_loading(self, mock_exists, mock_file):
+        """Verify that load_external_config reads from JSON."""
+        config = llm_ensemble.load_external_config()
+        self.assertEqual(config["gemini_default_model"], "test-gemini")
+        # Check fallback remains for keys not in JSON
+        self.assertEqual(config["codex_default_model"], llm_ensemble.FALLBACK_CODEX_MODEL)
 
     @patch('argparse.ArgumentParser.parse_args')
     def test_config_parsing(self, mock_parse):
@@ -200,6 +271,8 @@ class TestLLMEnsemble(unittest.TestCase):
         config.timeout = 300
         config.output_format = "txt"
         config.require_git = False
+        config.merge_provider = "codex" # Required
+        config.merge_context_files = []
         
         app = llm_ensemble.EnsembleApp(config)
         app.prompt_canon = MagicMock()

@@ -16,10 +16,44 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any, Union, Callable
 
 # --- Configuration & Defaults ---
-DEFAULT_GEMINI_MODEL = "gemini-3-pro-preview"
-DEFAULT_CODEX_MODEL = "gpt-5.2-codex"
-DEFAULT_CODEX_REASONING = "high"
-VALID_REASONING_LEVELS = {"minimal", "low", "medium", "high", "xhigh"}
+# Hardcoded fallbacks in case config.json is missing
+FALLBACK_GEMINI_MODEL = "gemini-3-pro-preview"
+FALLBACK_CODEX_MODEL = "gpt-5.2-codex"
+FALLBACK_CODEX_REASONING = "high"
+FALLBACK_REASONING_LEVELS = ["minimal", "low", "medium", "high", "xhigh"]
+
+def load_external_config():
+    """Loads configuration from config.json if it exists."""
+    config_path = Path("config.json")
+    defaults = {
+        "gemini_default_model": FALLBACK_GEMINI_MODEL,
+        "codex_default_model": FALLBACK_CODEX_MODEL,
+        "codex_reasoning_default": FALLBACK_CODEX_REASONING,
+        "codex_reasoning_levels": FALLBACK_REASONING_LEVELS,
+        "gemini_known_models": [FALLBACK_GEMINI_MODEL],
+        "codex_known_models": [FALLBACK_CODEX_MODEL]
+    }
+    
+    if config_path.exists():
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                user_config = json.load(f)
+                defaults.update(user_config)
+        except Exception as e:
+            print(f"Warning: Failed to load config.json: {e}", file=sys.stderr)
+            
+    return defaults
+
+# Load Global Config
+GLOBAL_CONFIG = load_external_config()
+
+DEFAULT_GEMINI_MODEL = GLOBAL_CONFIG["gemini_default_model"]
+DEFAULT_CODEX_MODEL = GLOBAL_CONFIG["codex_default_model"]
+DEFAULT_CODEX_REASONING = GLOBAL_CONFIG["codex_reasoning_default"]
+VALID_REASONING_LEVELS = set(GLOBAL_CONFIG["codex_reasoning_levels"])
+GEMINI_KNOWN_MODELS = GLOBAL_CONFIG["gemini_known_models"]
+CODEX_KNOWN_MODELS = GLOBAL_CONFIG["codex_known_models"]
+
 DEFAULT_TIMEOUT = 300
 
 @dataclass
@@ -33,10 +67,12 @@ class Config:
     gemini_model: str
     codex_model: str
     codex_reasoning: str
-    merge_codex_model: Optional[str]
+    merge_codex_model: Optional[str] # This field name is legacy but we will use it for "merge_model"
+    merge_provider: str # New field: 'gemini' or 'codex'
     merge_reasoning: Optional[str]
     merge_prompt_text: Optional[str]
     merge_prompt_file: Optional[Path]
+    merge_context_files: List[Path]
     timeout: int
     output_format: str
     require_git: bool
@@ -66,6 +102,45 @@ def text_to_rtf(text: str) -> str:
             res.append(char)
             
     return header + "".join(res) + footer
+
+def create_docx(text: str, output_path: Path):
+    """Creates a minimal valid .docx file from plain text using standard zipfile."""
+    # 1. [Content_Types].xml
+    content_types = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+    <Default Extension="xml" ContentType="application/xml"/>
+    <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>"""
+
+    # 2. _rels/.rels
+    rels = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>"""
+
+    # 3. word/document.xml
+    # Escape XML characters
+    escaped_text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    
+    # Split lines into paragraphs
+    paragraphs = []
+    for line in escaped_text.split('\n'):
+        paragraphs.append(f'<w:p><w:r><w:t>{line}</w:t></w:r></w:p>')
+    
+    body_content = "".join(paragraphs)
+    
+    document_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+    <w:body>
+        {body_content}
+    </w:body>
+</w:document>"""
+
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr('[Content_Types].xml', content_types)
+        zf.writestr('_rels/.rels', rels)
+        zf.writestr('word/document.xml', document_xml)
 
 # --- Runners ---
 class LLMRunner:
@@ -114,7 +189,21 @@ class GeminiRunner(LLMRunner):
                 
             return True
 
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, json.JSONDecodeError, IOError) as e:
+        except subprocess.CalledProcessError as e:
+            err_msg = f"[gemini] ERROR: Command failed with exit code {e.returncode}."
+            try:
+                if log_path.exists():
+                    err_content = log_path.read_text(encoding='utf-8').strip()
+                    if err_content:
+                        err_msg += f"\n--- STDERR ---\n{err_content}\n--------------"
+            except Exception:
+                pass
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(err_msg)
+            return False
+
+        except (subprocess.TimeoutExpired, json.JSONDecodeError, IOError) as e:
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(f"[gemini] ERROR: {str(e)} (see {log_path})")
             return False
@@ -145,7 +234,21 @@ class CodexRunner(LLMRunner):
                                timeout=timeout if timeout > 0 else None, 
                                check=True)
             return True
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, IOError) as e:
+        except subprocess.CalledProcessError as e:
+            # Try to read the error log to provide more context
+            err_msg = f"[codex] ERROR: Command failed with exit code {e.returncode}."
+            try:
+                if log_path.exists():
+                    err_content = log_path.read_text(encoding='utf-8').strip()
+                    if err_content:
+                        err_msg += f"\n--- STDERR ---\n{err_content}\n--------------"
+            except Exception:
+                pass
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(err_msg)
+            return False
+        except (subprocess.TimeoutExpired, IOError) as e:
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(f"[codex] ERROR: {str(e)} (see {log_path})")
             return False
@@ -215,28 +318,10 @@ class EnsembleApp:
             self.log(f"Error reading DOCX {docx_path}: {e}")
             return f"[Error extracting text from DOCX: {docx_path.name}]"
 
-    def validate_and_setup(self):
-        # 1. Output Directory
-        if not self.cfg.outdir.exists():
-            try:
-                self.cfg.outdir.mkdir(parents=True)
-            except OSError as e:
-                die(f"Cannot create outdir: {self.cfg.outdir} - {e}")
-        
-        # Create Runs subdirectory
-        self.runs_dir = self.cfg.outdir / "Runs"
-        try:
-            self.runs_dir.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            die(f"Cannot create runs dir: {self.runs_dir} - {e}")
-        
-        # 2. Prompt Processing
-        self.prompt_canon = self.cfg.outdir / "prompt.txt"
-        
-        # --- Context Processing ---
-        final_prompt_content = []
-        
-        for ctx_file in self.cfg.context_files:
+    def process_context_files(self, file_list: List[Path]) -> str:
+        """Reads and formats a list of context files."""
+        formatted_content = []
+        for ctx_file in file_list:
             if not ctx_file.exists():
                 die(f"Context file not found: {ctx_file}")
             
@@ -258,8 +343,31 @@ class EnsembleApp:
                 except UnicodeDecodeError:
                     ctx_text = raw_ctx.decode('latin-1', errors='replace')
                     self.log(f"Warning: Converted context file {ctx_file} using fallback encoding.")
-                
-            final_prompt_content.append(f"[Context File: {ctx_file.name}]\n<<<\n{ctx_text}\n>>>\n")
+            
+            formatted_content.append(f"[Context File: {ctx_file.name}]\n<<<\n{ctx_text}\n>>>\n")
+        
+        return "".join(formatted_content)
+
+    def validate_and_setup(self):
+        # 1. Output Directory
+        if not self.cfg.outdir.exists():
+            try:
+                self.cfg.outdir.mkdir(parents=True)
+            except OSError as e:
+                die(f"Cannot create outdir: {self.cfg.outdir} - {e}")
+        
+        # Create Runs subdirectory
+        self.runs_dir = self.cfg.outdir / "Runs"
+        try:
+            self.runs_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            die(f"Cannot create runs dir: {self.runs_dir} - {e}")
+        
+        # 2. Prompt Processing
+        self.prompt_canon = self.cfg.outdir / "prompt.txt"
+        
+        # --- Context Processing ---
+        context_block = self.process_context_files(self.cfg.context_files)
 
         # --- Main Prompt Processing ---
         content = ""
@@ -292,6 +400,10 @@ class EnsembleApp:
             else:
                 die("No prompt provided. Use --prompt, --prompt-file, or pipe stdin.")
 
+        final_prompt_content = []
+        if context_block:
+            final_prompt_content.append(context_block)
+        
         if final_prompt_content:
             final_prompt_content.append("USER PROMPT:\n")
         final_prompt_content.append(content)
@@ -414,9 +526,16 @@ USER PROMPT:
         elif self.cfg.merge_prompt_text:
             instruction = self.cfg.merge_prompt_text
 
+        # Process Merge Context Files
+        merge_ctx_block = self.process_context_files(self.cfg.merge_context_files)
+
         # Build merge content
         with open(merge_prompt_path, 'w', encoding='utf-8') as f:
             f.write(instruction)
+            if merge_ctx_block:
+                f.write("\n\nMERGE CONTEXT:\n")
+                f.write(merge_ctx_block)
+            f.write("\n\nORIGINAL PROMPT & CONTEXT:\n")
             f.write(self.prompt_canon.read_text(encoding='utf-8'))
             f.write("\n>>>\n\nCANDIDATE ANSWERS:\n")
             
@@ -432,13 +551,20 @@ USER PROMPT:
 
         # Run Merge
         reasoning = self.cfg.merge_reasoning or self.cfg.codex_reasoning
-        self.log(f"Merging with Codex model='{self.merge_codex_model}' reasoning='{reasoning}'...")
+        merge_model = self.merge_codex_model
+        provider = self.cfg.merge_provider
         
-        self.codex_runner.run(merge_prompt_path, final_out, final_log, self.cfg.timeout, 
-                              model=self.merge_codex_model, reasoning=reasoning, require_git=self.cfg.require_git)
+        self.log(f"Merging with {provider} model='{merge_model}' reasoning='{reasoning if provider=='codex' else 'N/A'}'...")
+        
+        success = False
+        if provider == 'gemini':
+            success = self.gemini_runner.run(merge_prompt_path, final_out, final_log, self.cfg.timeout, model=merge_model)
+        else:
+            success = self.codex_runner.run(merge_prompt_path, final_out, final_log, self.cfg.timeout, 
+                                  model=merge_model, reasoning=reasoning, require_git=self.cfg.require_git)
         
         # Display and Format
-        if final_out.exists():
+        if success and final_out.exists():
             text = final_out.read_text(encoding='utf-8')
             self.log(f"\n=== FINAL ANSWER ===\n{text}\n")
             
@@ -447,6 +573,15 @@ USER PROMPT:
                 rtf_path = self.cfg.outdir / "final.rtf"
                 rtf_path.write_text(rtf_content, encoding='utf-8')
                 self.log(f"[Generated RTF: {rtf_path}]")
+            
+            elif self.cfg.output_format == 'docx':
+                docx_path = self.cfg.outdir / "final.docx"
+                try:
+                    create_docx(text, docx_path)
+                    self.log(f"[Generated DOCX: {docx_path}]")
+                except Exception as e:
+                    self.log(f"Error creating DOCX: {e}")
+
         else:
              self.log("Warning: Final output not generated.")
 
@@ -467,6 +602,7 @@ def parse_args() -> Config:
     parser.add_argument("positional_prompt", nargs="?", help="Positional prompt text")
 
     parser.add_argument("-c", "--context", action="append", type=Path, dest="context_files", help="Additional context file (can be used multiple times)")
+    parser.add_argument("-mc", "--merge-context", action="append", type=Path, dest="merge_context_files", help="Context file for merge step only (repeatable)")
 
     # Options
     parser.add_argument("-o", "--outdir", type=Path, help="Output directory")
@@ -476,7 +612,7 @@ def parse_args() -> Config:
     parser.add_argument("--codex-model", default=DEFAULT_CODEX_MODEL, help=f"Default: {DEFAULT_CODEX_MODEL}")
     parser.add_argument("--codex-reasoning", default=DEFAULT_CODEX_REASONING, choices=VALID_REASONING_LEVELS, help=f"Default: {DEFAULT_CODEX_REASONING}")
     
-    parser.add_argument("--merge-codex-model", help="Codex model for merging")
+    parser.add_argument("--merge-codex-model", help="Model for merging (Gemini or Codex)")
     parser.add_argument("--merge-reasoning", choices=VALID_REASONING_LEVELS, help="Reasoning for merging")
     
     merge_group = parser.add_mutually_exclusive_group()
@@ -484,7 +620,7 @@ def parse_args() -> Config:
     merge_group.add_argument("--merge-prompt-file", type=Path, help="Custom merge instruction file")
     
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help=f"Timeout seconds (default: {DEFAULT_TIMEOUT})")
-    parser.add_argument("--format", dest="output_format", choices=['txt', 'rtf'], default="txt", help="Output format")
+    parser.add_argument("--format", dest="output_format", choices=['txt', 'rtf', 'docx'], default="txt", help="Output format")
     parser.add_argument("--require-git", action="store_true", help="Enable Codex git repo check")
 
     args = parser.parse_args()
@@ -508,6 +644,10 @@ def parse_args() -> Config:
         # Default: ./Outputs/llm_ensemble_TIMESTAMP
         args.outdir = Path("Outputs") / f"llm_ensemble_{ts}"
 
+    merge_provider = "codex"
+    if args.merge_codex_model and "gemini" in args.merge_codex_model.lower():
+        merge_provider = "gemini"
+
     return Config(
         models_csv=args.models,
         iterations=args.iterations,
@@ -518,10 +658,12 @@ def parse_args() -> Config:
         gemini_model=args.gemini_model,
         codex_model=args.codex_model,
         codex_reasoning=args.codex_reasoning,
-        merge_codex_model=args.merge_codex_model,
+        merge_codex_model=args.merge_codex_model, # Now holds either model
+        merge_provider=merge_provider,
         merge_reasoning=args.merge_reasoning,
         merge_prompt_text=args.merge_prompt,
         merge_prompt_file=args.merge_prompt_file,
+        merge_context_files=args.merge_context_files or [],
         timeout=args.timeout,
         output_format=args.output_format,
         require_git=args.require_git

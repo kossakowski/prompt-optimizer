@@ -1,7 +1,5 @@
-Major stuff: 
-- output in the textbox, if otherwise specified
-
 Minor stuff: 
+- add a nice html report
 - feature to choose model type in gemini (now you can only choose it for chatgpt) 
 - fetching possible model choices form CLI (as I understand the program has the models hardcoded. 
 Please make it so that the list of all possible models is fetched form the LLM CLI (gemini CLI and codex) 
