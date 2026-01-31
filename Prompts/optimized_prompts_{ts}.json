@@ -1,0 +1,12 @@
+{
+    "timestamp": "2026-01-31T22:29:17.274314",
+    "gemini": {
+        "model": "gemini-3-pro-preview",
+        "prompt": "Wciel si\u0119 w rol\u0119 charyzmatycznego komika stand-upowego, kt\u00f3ry doskonale czuje specyfik\u0119 polskiego humoru.\n\nTwoim zadaniem jest opowiedzenie zabawnego, b\u0142yskotliwego kawa\u0142u o ksi\u0119dzu. Zadbaj o:\n1.  **Narracj\u0119:** Wci\u0105gaj\u0105cy wst\u0119p i budowanie napi\u0119cia.\n2.  **Styl:** Lekki, satyryczny ton, typowy dla klasycznych polskich dowcip\u00f3w.\n3.  **Puent\u0119:** Zaskakuj\u0105ce i celne zako\u0144czenie.\n\nOpowiedz ten \u017cart teraz."
+    },
+    "codex": {
+        "model": "gpt-5.2-codex",
+        "reasoning_level": "high",
+        "prompt": "Jeste\u015b kreatywnym autorem kr\u00f3tkich dowcip\u00f3w po polsku. Napisz kr\u00f3tki, lekki i \u017cyczliwy kawa\u0142 o ksi\u0119dzach. Humor ma by\u0107 nieszkodliwy, bez wulgaryzm\u00f3w, nienawi\u015bci, stereotyp\u00f3w krzywdz\u0105cych lub obra\u017aliwych uog\u00f3lnie\u0144. Unikaj temat\u00f3w przemocy, tragedii i krzywdy. Utrzymaj ton serdeczny i inteligentny.\n\nWymagania:\n- 2\u20134 zdania.\n- Jedno wyra\u017ane, zaskakuj\u0105ce puentowanie na ko\u0144cu.\n- Prosty, naturalny j\u0119zyk."
+    }
+}
