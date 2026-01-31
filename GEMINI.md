@@ -52,7 +52,7 @@ python3 llm_ensemble.py -m gemini,codex -n 2 -p "Your prompt here"
 *   `-c, --context`: Attach additional files as context (repeatable). Supports **.txt**, **.pdf**, **.docx**.
 *   `-mc, --merge-context`: Attach context files specifically for the merge step (repeatable).
 *   `-o, --outdir`: Directory to save artifacts. Defaults to `Outputs/llm_ensemble_<timestamp>`.
-*   `--format`: Output format: `txt`, `rtf`, or `docx`.
+    *   **Note:** The `Outputs/` directory is excluded from the repository to keep it clean.
 
 ## Output Structure
 Every run creates a timestamped folder inside `Outputs/` containing:
