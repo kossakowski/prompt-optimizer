@@ -79,8 +79,16 @@ class EnsembleGUI:
         report_frame.pack(fill=tk.X, pady=5)
         self.pre_report_var = tk.BooleanVar(value=True)
         self.post_report_var = tk.BooleanVar(value=True)
+        self.hitl_var = tk.BooleanVar(value=True)
+        
         ttk.Checkbutton(report_frame, text="Generate Pre-Report", variable=self.pre_report_var).pack(side=tk.LEFT, padx=5)
         ttk.Checkbutton(report_frame, text="Generate Post-Report", variable=self.post_report_var).pack(side=tk.LEFT, padx=5)
+        ttk.Checkbutton(report_frame, text="Human-in-the-Loop (Pause before Merge)", variable=self.hitl_var).pack(side=tk.LEFT, padx=5)
+
+        # State for HITL
+        self.cached_results = None
+        self.cached_app = None
+        self.is_merging_phase = False
 
     def create_config_tab(self):
         frame = self.tab_config
@@ -190,26 +198,54 @@ class EnsembleGUI:
     def start_thread(self):
         # Disable button
         self.run_btn.config(state='disabled')
-        self.log_text.config(state='normal')
-        self.log_text.delete(1.0, tk.END)
-        self.log_text.config(state='disabled')
         
-        # Switch to logs tab logic (conceptually) or just ensure logs are visible
-        # Since logs are at bottom, no switch needed.
+        # If we are NOT in the merging phase, clear logs
+        if not self.is_merging_phase:
+            self.log_text.config(state='normal')
+            self.log_text.delete(1.0, tk.END)
+            self.log_text.config(state='disabled')
         
         t = threading.Thread(target=self.run_process)
         t.start()
 
     def run_process(self):
         try:
-            # Construct Models CSV based on checkboxes
-            models_list = []
-            if self.use_gemini.get():
-                model_name = self.gemini_model_var.get().strip()
-                if model_name:
-                    models_list.append(f"gemini:{model_name}")
-                else:
-                    models_list.append("gemini") # Uses default
+            # === PHASE 2: MERGE ONLY ===
+            if self.is_merging_phase:
+                self.log("Resuming: Starting Merge Phase...")
+                
+                # Update Merge Prompt from GUI (User might have edited it)
+                new_merge_prompt = self.merge_prompt_text.get("1.0", tk.END).strip()
+                if not new_merge_prompt and self.hitl_var.get():
+                     self.log("Error: In Human-in-the-Loop mode, Merge Prompt is mandatory.")
+                     self.root.after(0, lambda: self.run_btn.config(state='normal'))
+                     return
+
+                # Update the config inside the cached app
+                # We can modify the config object directly
+                if new_merge_prompt:
+                    self.cached_app.cfg.merge_prompt_text = new_merge_prompt
+                
+                # Re-read merge context files in case user changed them (optional but good)
+                merge_ctx_files = [Path(self.merge_ctx_listbox.get(idx)) for idx in range(self.merge_ctx_listbox.size())]
+                self.cached_app.cfg.merge_context_files = merge_ctx_files
+
+                # Run Merge
+                self.cached_app.merge(self.cached_results)
+                
+                self.log("DONE! Check the output directory.")
+                
+                # Reset State
+                self.is_merging_phase = False
+                self.cached_results = None
+                self.cached_app = None
+                self.root.after(0, lambda: self.run_btn.config(text="RUN ENSEMBLE"))
+                return
+
+            # === PHASE 1: FULL RUN or ITERATION ONLY ===
+            
+            # Gather Data
+            gemini_model = self.gemini_model_var.get().strip()
             
             if self.use_codex.get():
                 model_name = self.codex_model_var.get().strip()
@@ -288,12 +324,49 @@ class EnsembleGUI:
             
             app.validate_and_setup()
             results = app.execute_parallel()
+            
+            # --- HITL CHECK ---
+            if self.hitl_var.get():
+                # Generate Pre-Report specifically here if needed, but app.merge usually does it.
+                # Actually, app.merge does it. But in HITL, we want the report BEFORE merge.
+                # So we should manually call the pre-report generation part?
+                # The core logic inside app.merge() handles pre-report.
+                # Let's extract pre-report generation or just let the user see the files.
+                # Better: Modify llm_ensemble.py to separate report generation? 
+                # For now, let's just generate the report here using the helper.
+                
+                if config.generate_pre_report:
+                    # We need to manually invoke the report generator here because we are pausing
+                    # Re-create the pre-report logic temporarily or refactor app.
+                    # Since we can't easily refactor app.merge in this step without touching llm_ensemble.py,
+                    # We will assume the user looks at the raw files or we call a new method if we add it.
+                    # Let's add a generate_pre_report method to EnsembleApp in the next step.
+                    app.generate_pre_merge_report(results, "Pending Merge Instruction") # We will add this method
+                
+                self.log("\n--- PAUSED FOR HUMAN REVIEW ---")
+                self.log("1. Review the generated files/report.")
+                self.log("2. Edit the 'Custom Merge Instructions' in the GUI if needed.")
+                self.log("3. Click 'PROCEED TO MERGE' to finish.")
+                
+                # Save State
+                self.cached_results = results
+                self.cached_app = app
+                self.is_merging_phase = True
+                
+                # Update Button Text safely
+                self.root.after(0, lambda: self.run_btn.config(text="PROCEED TO MERGE"))
+                return
+
+            # Normal Flow
             app.merge(results)
             
             self.log("DONE! Check the output directory.")
             
         except Exception as e:
             self.log(f"CRITICAL ERROR: {str(e)}")
+            # Reset on error
+            self.is_merging_phase = False
+            self.root.after(0, lambda: self.run_btn.config(text="RUN ENSEMBLE"))
         finally:
             self.root.after(0, lambda: self.run_btn.config(state='normal'))
 

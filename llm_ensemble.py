@@ -399,6 +399,34 @@ class EnsembleApp:
         
         return "".join(formatted_content)
 
+    def generate_pre_merge_report(self, result_files: List[Path], instruction: str):
+        """Generates the Pre-Merge report. Exposed for HITL usage."""
+        # We need to construct the context block again if not cached, 
+        # or we just re-read the context files.
+        # Ideally, we should reuse prompt construction logic.
+        
+        # Original Prompt
+        original_prompt = ""
+        if self.prompt_canon.exists():
+            original_prompt = self.prompt_canon.read_text(encoding='utf-8')
+            
+        merge_ctx_block = self.process_context_files(self.cfg.merge_context_files)
+
+        sections = [
+            {"title": "Proposed Merge Instruction", "content": instruction},
+            {"title": "Original Prompt & Context", "content": original_prompt, "is_code": True},
+        ]
+        if merge_ctx_block:
+            sections.append({"title": "Merge Context", "content": merge_ctx_block, "is_code": True})
+        
+        # Add Candidates
+        for res_file in result_files:
+            c_content = res_file.read_text(encoding='utf-8', errors='replace') if res_file.exists() else "[Missing]"
+            sections.append({"title": f"Candidate: {res_file.name}", "content": c_content, "is_code": True})
+            
+        generate_html_report("LLM Ensemble: Pre-Merge Report", sections, self.cfg.outdir / "pre_report.html")
+        self.log(f"[Generated Pre-Report: {self.cfg.outdir / 'pre_report.html'}]")
+
     def validate_and_setup(self):
         # 1. Output Directory
         if not self.cfg.outdir.exists():
