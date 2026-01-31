@@ -14,6 +14,7 @@ The project recently underwent a refactoring from a legacy Bash script (`llm_ens
 # Key Files
 
 *   **`llm_ensemble.py`**: The main Python CLI application. This is the recommended entry point.
+*   **`llm_ensemble_gui.py`**: A Tkinter-based Graphical User Interface for easy interaction.
 *   **`test_llm_ensemble.py`**: A comprehensive `unittest` suite for the Python application, mocking external CLI calls.
 *   **`docs/`**: Directory containing the user guide (`index.html`) and technical reference (`reference.html`).
 
@@ -21,7 +22,14 @@ The project recently underwent a refactoring from a legacy Bash script (`llm_ens
 
 The project is a standalone Python script with no external package dependencies beyond the standard library, though it relies on `gemini` and `codex` executables being present in the system `PATH`.
 
-## Running the Tool
+## Running the GUI
+For a visual interface, simply run:
+```bash
+python3 llm_ensemble_gui.py
+```
+This launches a window where you can configure models, attach context files, and view real-time logs.
+
+## Running the CLI
 ```bash
 python3 llm_ensemble.py -m gemini,codex -n 2 -p "Your prompt here"
 ```

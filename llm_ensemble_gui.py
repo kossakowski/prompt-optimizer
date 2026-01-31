@@ -41,10 +41,20 @@ class EnsembleGUI:
         self.timeout_var = tk.IntVar(value=300)
         ttk.Entry(config_frame, textvariable=self.timeout_var, width=10).grid(row=1, column=3, sticky=tk.W, pady=2)
         
-        # Reasoning
+        # Reasoning & Format
         ttk.Label(config_frame, text="Codex Reasoning:").grid(row=2, column=0, sticky=tk.W)
         self.reasoning_var = tk.StringVar(value="high")
         ttk.Combobox(config_frame, textvariable=self.reasoning_var, values=list(llm_ensemble.VALID_REASONING_LEVELS), state="readonly").grid(row=2, column=1, sticky=tk.W, pady=2)
+
+        ttk.Label(config_frame, text="Output Format:").grid(row=2, column=2, sticky=tk.W)
+        self.format_var = tk.StringVar(value="txt")
+        ttk.Combobox(config_frame, textvariable=self.format_var, values=["txt", "rtf"], state="readonly", width=8).grid(row=2, column=3, sticky=tk.W, pady=2)
+        
+        # Merge Config
+        ttk.Label(config_frame, text="Merge Reasoning:").grid(row=3, column=0, sticky=tk.W)
+        self.merge_reasoning_var = tk.StringVar(value="(Default)")
+        merge_levels = ["(Default)"] + list(llm_ensemble.VALID_REASONING_LEVELS)
+        ttk.Combobox(config_frame, textvariable=self.merge_reasoning_var, values=merge_levels, state="readonly").grid(row=3, column=1, sticky=tk.W, pady=2)
         
         # --- Prompt Section ---
         prompt_frame = ttk.LabelFrame(main_frame, text="Prompt", padding="10")
@@ -128,6 +138,11 @@ class EnsembleGUI:
             iterations = self.iter_var.get()
             timeout = self.timeout_var.get()
             reasoning = self.reasoning_var.get()
+            out_format = self.format_var.get()
+            
+            merge_reasoning_val = self.merge_reasoning_var.get()
+            if merge_reasoning_val == "(Default)":
+                merge_reasoning_val = None
             
             prompt = self.prompt_text.get("1.0", tk.END).strip()
             merge_prompt = self.merge_prompt_text.get("1.0", tk.END).strip()
@@ -154,11 +169,11 @@ class EnsembleGUI:
                 codex_model=llm_ensemble.DEFAULT_CODEX_MODEL,
                 codex_reasoning=reasoning,
                 merge_codex_model=None,
-                merge_reasoning=None,
+                merge_reasoning=merge_reasoning_val,
                 merge_prompt_text=merge_prompt if merge_prompt else None,
                 merge_prompt_file=None,
                 timeout=timeout,
-                output_format="txt",
+                output_format=out_format,
                 require_git=False
             )
             
