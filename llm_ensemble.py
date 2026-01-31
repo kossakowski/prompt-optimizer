@@ -9,6 +9,8 @@ import shutil
 import subprocess
 import sys
 import time
+import zipfile
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Union, Callable
@@ -162,6 +164,57 @@ class EnsembleApp:
         """Sends message to the configured logger."""
         self.logger(message)
 
+    def extract_text_from_pdf(self, pdf_path: Path) -> str:
+        """Extracts text from a PDF file using pdftotext (CLI)."""
+        if shutil.which("pdftotext"):
+            try:
+                # Run pdftotext, output to stdout (-)
+                result = subprocess.run(
+                    ["pdftotext", "-layout", str(pdf_path), "-"],
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                return result.stdout
+            except subprocess.CalledProcessError as e:
+                self.log(f"Error reading PDF {pdf_path}: {e.stderr}")
+                return f"[Error extracting text from PDF: {pdf_path.name}]"
+        else:
+             self.log(f"Warning: 'pdftotext' tool not found. Skipping PDF content: {pdf_path}")
+             return f"[Missing 'pdftotext' tool - could not read {pdf_path.name}]"
+
+    def extract_text_from_docx(self, docx_path: Path) -> str:
+        """Extracts text from a .docx file using standard zipfile/xml libraries."""
+        try:
+            with zipfile.ZipFile(docx_path) as zf:
+                xml_content = zf.read('word/document.xml')
+            
+            root = ET.fromstring(xml_content)
+            
+            # XML Namespace for Word
+            # Usually w is http://schemas.openxmlformats.org/wordprocessingml/2006/main
+            # But ElementTree handling of namespaces can be verbose.
+            # We simply look for all text nodes.
+            
+            text_parts = []
+            # Iterate over all paragraph elements
+            # In OpenXML, text is inside <w:p> -> <w:r> -> <w:t>
+            # We define the namespace map
+            ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+            
+            for p in root.findall('.//w:p', ns):
+                p_text = []
+                for t in p.findall('.//w:t', ns):
+                    if t.text:
+                        p_text.append(t.text)
+                text_parts.append("".join(p_text))
+            
+            return "\n".join(text_parts)
+
+        except Exception as e:
+            self.log(f"Error reading DOCX {docx_path}: {e}")
+            return f"[Error extracting text from DOCX: {docx_path.name}]"
+
     def validate_and_setup(self):
         # 1. Output Directory
         if not self.cfg.outdir.exists():
@@ -180,16 +233,24 @@ class EnsembleApp:
             if not ctx_file.exists():
                 die(f"Context file not found: {ctx_file}")
             
-            try:
-                # Basic binary check
-                raw_ctx = ctx_file.read_bytes()
-                if b'\0' in raw_ctx:
-                    die(f"Context file appears to be binary: {ctx_file}")
-                
-                ctx_text = raw_ctx.decode('utf-8')
-            except UnicodeDecodeError:
-                ctx_text = raw_ctx.decode('latin-1', errors='replace')
-                self.log(f"Warning: Converted context file {ctx_file} using fallback encoding.")
+            ctx_text = ""
+            suffix = ctx_file.suffix.lower()
+            
+            if suffix == '.pdf':
+                ctx_text = self.extract_text_from_pdf(ctx_file)
+            elif suffix == '.docx':
+                ctx_text = self.extract_text_from_docx(ctx_file)
+            else:
+                try:
+                    # Basic binary check
+                    raw_ctx = ctx_file.read_bytes()
+                    if b'\0' in raw_ctx:
+                        die(f"Context file appears to be binary: {ctx_file}")
+                    
+                    ctx_text = raw_ctx.decode('utf-8')
+                except UnicodeDecodeError:
+                    ctx_text = raw_ctx.decode('latin-1', errors='replace')
+                    self.log(f"Warning: Converted context file {ctx_file} using fallback encoding.")
                 
             final_prompt_content.append(f"[Context File: {ctx_file.name}]\n<<<\n{ctx_text}\n>>>\n")
 
@@ -301,13 +362,14 @@ class EnsembleApp:
                     future = executor.submit(self.codex_runner.run, self.prompt_canon, out_txt, log_file, self.cfg.timeout, 
                                              model=model, reasoning=self.cfg.codex_reasoning, require_git=self.cfg.require_git)
                 
-                future_to_task[future] = out_txt
+                future_to_task[future] = (out_txt, provider, model, i)
 
             for future in concurrent.futures.as_completed(future_to_task):
-                out_path = future_to_task[future]
+                out_path, provider, model, i = future_to_task[future]
                 try:
                     future.result() # Wait for completion
                     results.append(out_path)
+                    self.log(f"Finished {provider} ({i}/{self.cfg.iterations})")
                 except Exception as e:
                     self.log(f"Unexpected error in thread: {e}")
         

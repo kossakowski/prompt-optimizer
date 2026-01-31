@@ -260,5 +260,114 @@ class TestLLMEnsemble(unittest.TestCase):
         self.assertIn("USER PROMPT:", written_content)
         self.assertIn("Main Prompt", written_content)
 
+    @patch('shutil.which')
+    @patch('subprocess.run')
+    def test_pdf_context_extraction(self, mock_run, mock_which):
+        # Setup
+        mock_which.return_value = "/usr/bin/pdftotext"
+        
+        config = MagicMock()
+        config.outdir = MagicMock(spec=Path)
+        config.prompt_text = "Prompt"
+        config.prompt_file = None
+        config.models_csv = "gemini"
+        config.iterations = 1
+        config.gemini_model = "g"
+        config.codex_model = "c"
+        
+        # Mock PDF file
+        pdf_file = MagicMock(spec=Path)
+        pdf_file.exists.return_value = True
+        pdf_file.name = "document.pdf"
+        pdf_file.suffix = ".pdf"
+        
+        config.context_files = [pdf_file]
+        
+        app = llm_ensemble.EnsembleApp(config)
+        app.gemini_runner = MagicMock()
+        app.gemini_runner.check_dependency.return_value = True
+        app.codex_runner = MagicMock()
+        app.codex_runner.check_dependency.return_value = True
+        
+        # Mock pdftotext output
+        mock_run.return_value.stdout = "Extracted PDF Text"
+        
+        # Mock prompt writer
+        mock_prompt_canon = MagicMock()
+        config.outdir.__truediv__.return_value = mock_prompt_canon
+        
+        app.validate_and_setup()
+        
+        # Verify pdftotext was called
+        mock_run.assert_called_with(
+            ["pdftotext", "-layout", str(pdf_file), "-"],
+            capture_output=True, text=True, check=True
+        )
+        
+        # Verify text is in prompt
+        written_content = mock_prompt_canon.write_text.call_args[0][0]
+        self.assertIn("[Context File: document.pdf]", written_content)
+        self.assertIn("Extracted PDF Text", written_content)
+
+    @patch('zipfile.ZipFile')
+    def test_docx_context_extraction(self, MockZipFile):
+        # Mock DOCX content (Word XML structure)
+        xml_content = b"""
+        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+            <w:body>
+                <w:p>
+                    <w:r><w:t>Hello</w:t></w:r>
+                    <w:r><w:t> </w:t></w:r>
+                    <w:r><w:t>World</w:t></w:r>
+                </w:p>
+                <w:p>
+                    <w:r><w:t>Paragraph 2</w:t></w:r>
+                </w:p>
+            </w:body>
+        </w:document>
+        """
+        
+        # Setup ZipFile Mock
+        mock_zip = MockZipFile.return_value.__enter__.return_value
+        mock_zip.read.return_value = xml_content
+        
+        # Setup Config
+        config = MagicMock()
+        config.outdir = MagicMock(spec=Path)
+        config.prompt_text = "Prompt"
+        config.prompt_file = None
+        config.models_csv = "gemini"
+        config.iterations = 1
+        config.gemini_model = "g"
+        config.codex_model = "c"
+        
+        docx_file = MagicMock(spec=Path)
+        docx_file.exists.return_value = True
+        docx_file.name = "test.docx"
+        docx_file.suffix = ".docx"
+        
+        config.context_files = [docx_file]
+        
+        app = llm_ensemble.EnsembleApp(config)
+        app.gemini_runner = MagicMock()
+        app.codex_runner = MagicMock()
+        app.gemini_runner.check_dependency.return_value = True
+        app.codex_runner.check_dependency.return_value = True
+        
+        # Mock prompt writer
+        mock_prompt_canon = MagicMock()
+        config.outdir.__truediv__.return_value = mock_prompt_canon
+        
+        app.validate_and_setup()
+        
+        # Verify
+        mock_zip.read.assert_called_with('word/document.xml')
+        
+        written_content = mock_prompt_canon.write_text.call_args[0][0]
+        self.assertIn("[Context File: test.docx]", written_content)
+        # The extractor joins text parts in a paragraph, and paragraphs with newlines
+        self.assertIn("Hello World", written_content) 
+        self.assertIn("Paragraph 2", written_content)
+
 if __name__ == '__main__':
     unittest.main()
