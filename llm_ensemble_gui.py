@@ -247,6 +247,14 @@ class EnsembleGUI:
             # Gather Data
             gemini_model = self.gemini_model_var.get().strip()
             
+            # Construct CSV string for compatibility with Config
+            models_list = []
+            if self.use_gemini.get():
+                if gemini_model:
+                    models_list.append(f"gemini:{gemini_model}")
+                else:
+                    models_list.append("gemini")
+
             if self.use_codex.get():
                 model_name = self.codex_model_var.get().strip()
                 if model_name:
