@@ -1,4 +1,8 @@
 __pycache__/
 *.pyc
 llm_ensemble_*/
+Outputs/
+Verification_Output/
 .DS_Store
+context/
+context/*
