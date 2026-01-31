@@ -235,6 +235,12 @@
                         <td>Attach files as context. Supports <strong>.txt, .pdf, .docx</strong>. Repeatable.</td>
                     </tr>
                     <tr>
+                        <td><code>-mc, --merge-context</code></td>
+                        <td>No</td>
+                        <td>-</td>
+                        <td>Attach context files specifically for the Merge phase. Repeatable.</td>
+                    </tr>
+                    <tr>
                         <td><code>[Positional]</code></td>
                         <td>No*</td>
                         <td>-</td>
@@ -249,20 +255,20 @@
                     <tr>
                         <td><code>--gemini-model</code></td>
                         <td>No</td>
-                        <td>gemini-3-pro-preview</td>
+                        <td>(See config.json)</td>
                         <td>Default model for Gemini provider.</td>
                     </tr>
                     <tr>
                         <td><code>--codex-model</code></td>
                         <td>No</td>
-                        <td>gpt-5.2-codex</td>
+                        <td>(See config.json)</td>
                         <td>Default model for Codex provider.</td>
                     </tr>
                     <tr>
                         <td><code>--codex-reasoning</code></td>
                         <td>No</td>
                         <td>high</td>
-                        <td><code>minimal</code>, <code>low</code>, <code>medium</code>, <code>high</code>, <code>xhigh</code>.</td>
+                        <td><code>low</code>, <code>medium</code>, <code>high</code>, <code>xhigh</code>.</td>
                     </tr>
                     <tr>
                         <td><code>--merge-prompt</code></td>
@@ -280,7 +286,19 @@
                         <td><code>--format</code></td>
                         <td>No</td>
                         <td>txt</td>
-                        <td>Output format: <code>txt</code> or <code>rtf</code>.</td>
+                        <td>Output format: <code>txt</code>, <code>rtf</code>, or <code>docx</code>.</td>
+                    </tr>
+                    <tr>
+                        <td><code>--no-pre-report</code></td>
+                        <td>No</td>
+                        <td>False</td>
+                        <td>Disable the HTML Pre-Merge Report.</td>
+                    </tr>
+                    <tr>
+                        <td><code>--no-post-report</code></td>
+                        <td>No</td>
+                        <td>False</td>
+                        <td>Disable the HTML Post-Merge Report.</td>
                     </tr>
                 </tbody>
             </table>
@@ -324,7 +342,9 @@
                 <li><code>prompt.txt</code>: The canonicalized input prompt (UTF-8).</li>
                 <li><code>merge_prompt.txt</code>: The exact prompt sent to the merger model.</li>
                 <li><code>final.txt</code>: The final synthesized answer.</li>
-                <li><code>final.rtf</code>: (Optional) The formatted document if <code>--format rtf</code> was used.</li>
+                <li><code>final.rtf / .docx</code>: (Optional) The formatted document.</li>
+                <li><code>pre_report.html</code>: Visual report of all candidate answers and prompts (before merge).</li>
+                <li><code>post_report.html</code>: Visual report of the final result and execution summary.</li>
             </ul>
         </section>
 

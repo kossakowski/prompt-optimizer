@@ -236,16 +236,20 @@
                 </div>
                 <div class="card">
                     <h3>🧠 Synthesis Engine</h3>
-                    <p>Doesn't just dump outputs. It merges them into a single, coherent, high-quality response.</p>
+                    <p>Aggregates all candidate answers and uses a "reasoning" model to generate a final, consolidated response.</p>
                 </div>
                 <div class="card">
                     <h3>📄 Rich File Support</h3>
-                    <p>Native support for <strong>PDF</strong>, <strong>DOCX</strong>, and Text files as context. Automatic text extraction included.</p>
+                    <p>Native support for <strong>PDF</strong>, <strong>DOCX</strong>, and Text files. Export to <strong>RTF</strong> or <strong>DOCX</strong>.</p>
+                </div>
+                <div class="card">
+                    <h3>🤝 Human-in-the-Loop</h3>
+                    <p>Pause execution after initial drafts to review a generated <strong>HTML Report</strong>, refine instructions, and control the final merge.</p>
                 </div>
             </div>
         </section>
 
-        <section id="install">
+        <section id="quickstart">
             <h2>Installation & Requirements</h2>
             <div class="alert">
                 <span class="alert-title">Prerequisites</span>
@@ -323,6 +327,19 @@ chmod +x llm_ensemble.py</code></pre>
   --format rtf \
   "Draft a project proposal for a new API"</code></pre>
                 <p><strong>Outcome:</strong> A <code>final.rtf</code> file is created in the output directory, ready to open in Word or TextEdit.</p>
+            </div>
+
+            <div id="scenario-hitl" class="card">
+                <h3>Scenario 4: Human-in-the-Loop (GUI)</h3>
+                <p><strong>Goal:</strong> Review drafts before the final merge.</p>
+                <ol>
+                    <li>Launch the GUI: <code>python3 llm_ensemble_gui.py</code></li>
+                    <li>Check <strong>"Human-in-the-Loop"</strong>.</li>
+                    <li>Click <strong>Run Ensemble</strong>.</li>
+                    <li>Wait for the "PAUSED" message. Open <code>pre_report.html</code> in the output folder.</li>
+                    <li>Refine the "Custom Merge Instructions" based on what you see.</li>
+                    <li>Click <strong>PROCEED TO MERGE</strong> to finish.</li>
+                </ol>
             </div>
         </section>
 
