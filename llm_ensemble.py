@@ -499,7 +499,8 @@ def parse_args() -> Config:
     
     if not args.outdir:
         ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        args.outdir = Path(f"./llm_ensemble_{ts}")
+        # Default: ./Outputs/llm_ensemble_TIMESTAMP
+        args.outdir = Path("Outputs") / f"llm_ensemble_{ts}"
 
     return Config(
         models_csv=args.models,

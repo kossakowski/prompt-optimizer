@@ -67,7 +67,8 @@ class TestLLMEnsemble(unittest.TestCase):
         self.assertEqual(config.models_csv, "gemini,codex")
         self.assertEqual(config.iterations, 2)
         self.assertEqual(config.prompt_text, "Hello")
-        self.assertIsNotNone(config.outdir) # Generated timestamp
+        # Verify it starts with Outputs/
+        self.assertTrue(str(config.outdir).startswith("Outputs/llm_ensemble_"))
 
     def test_binary_file_detection(self):
         # Mocking prompt file reading
@@ -368,6 +369,101 @@ class TestLLMEnsemble(unittest.TestCase):
         # The extractor joins text parts in a paragraph, and paragraphs with newlines
         self.assertIn("Hello World", written_content) 
         self.assertIn("Paragraph 2", written_content)
+
+    @patch('shutil.which')
+    @patch('subprocess.run')
+    @patch('zipfile.ZipFile')
+    def test_multiple_mixed_context_files(self, MockZipFile, mock_run, mock_which):
+        """Verify that Text, PDF, and DOCX files are all processed and combined correctly."""
+        # 1. Setup PDF Tools
+        mock_which.return_value = "/usr/bin/pdftotext"
+        mock_run.return_value.stdout = "CONTENT_FROM_PDF"
+        
+        # 2. Setup DOCX Tools
+        mock_zip = MockZipFile.return_value.__enter__.return_value
+        mock_zip.read.return_value = b"""
+        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+            <w:body><w:p><w:r><w:t>CONTENT_FROM_DOCX</w:t></w:r></w:p></w:body>
+        </w:document>
+        """
+        
+        # 3. Setup Files
+        ctx_txt = MagicMock(spec=Path); ctx_txt.exists.return_value = True; ctx_txt.name = "f1.txt"; ctx_txt.suffix = ".txt"
+        ctx_txt.read_bytes.return_value = b"CONTENT_FROM_TXT"
+        
+        ctx_pdf = MagicMock(spec=Path); ctx_pdf.exists.return_value = True; ctx_pdf.name = "f2.pdf"; ctx_pdf.suffix = ".pdf"
+        
+        ctx_docx = MagicMock(spec=Path); ctx_docx.exists.return_value = True; ctx_docx.name = "f3.docx"; ctx_docx.suffix = ".docx"
+        
+        # 4. Config
+        config = MagicMock()
+        config.outdir = MagicMock(spec=Path)
+        config.prompt_text = "MAIN_PROMPT"
+        config.prompt_file = None
+        config.models_csv = "gemini"; config.gemini_model = "g"; config.codex_model = "c"
+        config.iterations = 1
+        config.context_files = [ctx_txt, ctx_pdf, ctx_docx]
+        
+        # 5. Run
+        app = llm_ensemble.EnsembleApp(config)
+        app.gemini_runner = MagicMock()
+        app.gemini_runner.check_dependency.return_value = True
+        app.codex_runner = MagicMock()
+        app.codex_runner.check_dependency.return_value = True
+        
+        mock_prompt_canon = MagicMock()
+        config.outdir.__truediv__.return_value = mock_prompt_canon
+        
+        app.validate_and_setup()
+        
+        # 6. Verify Final Prompt Content
+        full_text = mock_prompt_canon.write_text.call_args[0][0]
+        
+        self.assertIn("[Context File: f1.txt]", full_text)
+        self.assertIn("CONTENT_FROM_TXT", full_text)
+        
+        self.assertIn("[Context File: f2.pdf]", full_text)
+        self.assertIn("CONTENT_FROM_PDF", full_text)
+        
+        self.assertIn("[Context File: f3.docx]", full_text)
+        self.assertIn("CONTENT_FROM_DOCX", full_text)
+        
+        self.assertIn("USER PROMPT:", full_text)
+        self.assertIn("MAIN_PROMPT", full_text)
+
+    def test_fallback_encoding(self):
+        """Verify that non-UTF8 text files are read using Latin-1 fallback."""
+        # Create a mock file that raises UnicodeDecodeError on utf-8 read
+        bad_file = MagicMock(spec=Path)
+        bad_file.exists.return_value = True
+        bad_file.name = "latin1.txt"
+        bad_file.suffix = ".txt"
+        
+        # Byte sequence invalid in UTF-8 (e.g., standalone 0xE9 which is 'é' in Latin-1)
+        latin_bytes = b"\xE9" 
+        bad_file.read_bytes.return_value = latin_bytes
+        
+        config = MagicMock()
+        config.outdir = MagicMock(spec=Path)
+        config.prompt_text = "Prompt"
+        config.prompt_file = None
+        config.context_files = [bad_file]
+        config.models_csv = "gemini"; config.gemini_model = "g"; config.codex_model = "c"; config.iterations = 1
+
+        app = llm_ensemble.EnsembleApp(config)
+        app.gemini_runner = MagicMock(); app.codex_runner = MagicMock()
+        app.gemini_runner.check_dependency.return_value = True
+        app.codex_runner.check_dependency.return_value = True
+        
+        mock_prompt_canon = MagicMock()
+        config.outdir.__truediv__.return_value = mock_prompt_canon
+        
+        app.validate_and_setup()
+        
+        full_text = mock_prompt_canon.write_text.call_args[0][0]
+        # In Latin-1, 0xE9 is 'é'. If fallback works, we see 'é'.
+        self.assertIn("é", full_text)
+        self.assertIn("[Context File: latin1.txt]", full_text)
 
 if __name__ == '__main__':
     unittest.main()

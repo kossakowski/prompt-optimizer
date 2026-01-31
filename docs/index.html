@@ -239,8 +239,8 @@
                     <p>Doesn't just dump outputs. It merges them into a single, coherent, high-quality response.</p>
                 </div>
                 <div class="card">
-                    <h3>📄 File & Format Support</h3>
-                    <p>Handles large file inputs automatically and can export polished RTF documents.</p>
+                    <h3>📄 Rich File Support</h3>
+                    <p>Native support for <strong>PDF</strong>, <strong>DOCX</strong>, and Text files as context. Automatic text extraction included.</p>
                 </div>
             </div>
         </section>
@@ -267,6 +267,12 @@ chmod +x llm_ensemble.py</code></pre>
 
         <section id="quickstart">
             <h2>Quick Start</h2>
+            
+            <div class="alert">
+                <span class="alert-title">New! Graphical Interface</span>
+                Prefer a visual experience? Run <code>python3 llm_ensemble_gui.py</code> to launch the new GUI.
+            </div>
+
             <p>The most basic usage requires defining the models to use (<code>-m</code>) and the number of iterations (<code>-n</code>).</p>
             
             <pre><code>python3 llm_ensemble.py -m gemini,codex -n 1 "Why is the sky blue?"</code></pre>
@@ -277,7 +283,7 @@ chmod +x llm_ensemble.py</code></pre>
                 <li>The tool ran <strong>Codex</strong> once (in parallel).</li>
                 <li>It gathered both answers.</li>
                 <li>It used a "Merger" model (Codex) to combine them into one final explanation.</li>
-                <li>It saved everything in a timestamped folder <code>./llm_ensemble_YYYYMMDD_.../</code>.</li>
+                <li>It saved everything in a timestamped folder <code>Outputs/llm_ensemble_YYYYMMDD_.../</code>.</li>
             </ol>
         </section>
 
@@ -297,14 +303,15 @@ chmod +x llm_ensemble.py</code></pre>
             </div>
 
             <div id="scenario-deep" class="card">
-                <h3>Scenario 2: The Logic Puzzle</h3>
-                <p>For complex reasoning, you can force the Codex model to "think harder" using the reasoning flag.</p>
+                <h3>Scenario 2: Analyzing Documents (PDF/DOCX)</h3>
+                <p>The tool can natively read PDFs and Word documents as context.</p>
                 <pre><code>python3 llm_ensemble.py \
-  -m codex \
-  -n 3 \
-  --codex-reasoning high \
-  "Solve this riddle: I speak without a mouth..."</code></pre>
-                <p><strong>Outcome:</strong> Uses only Codex, but runs it 3 times with high reasoning effort. The merge step consolidates the logic to ensure the correct answer.</p>
+  -m gemini \
+  -n 1 \
+  -c contract_draft.docx \
+  -c legal_precedent.pdf \
+  "Compare the draft against the precedent."</code></pre>
+                <p><strong>Outcome:</strong> Extracts text from the DOCX and PDF, attaches them to the prompt, and generates a comparison.</p>
             </div>
 
             <div id="scenario-files" class="card">

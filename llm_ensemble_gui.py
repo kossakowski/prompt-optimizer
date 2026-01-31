@@ -156,7 +156,7 @@ class EnsembleGUI:
 
             # Build Config
             ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            outdir = Path(f"./llm_ensemble_{ts}")
+            outdir = Path("Outputs") / f"llm_ensemble_{ts}"
             
             config = llm_ensemble.Config(
                 models_csv=models,
