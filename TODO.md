@@ -1,5 +1,4 @@
 Major stuff: 
-- subfolders in the output folder - folder with all the candidate answers
 - output in the textbox, if otherwise specified
 
 Minor stuff: 

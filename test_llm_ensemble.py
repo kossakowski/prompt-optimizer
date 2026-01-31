@@ -3,6 +3,7 @@ import unittest
 import sys
 import shutil
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch, mock_open
 
@@ -482,6 +483,33 @@ class TestLLMEnsemble(unittest.TestCase):
         # In Latin-1, 0xE9 is 'é'. If fallback works, we see 'é'.
         self.assertIn("é", full_text)
         self.assertIn("[Context File: latin1.txt]", full_text)
+
+    @patch('shutil.which')
+    @patch('subprocess.run')
+    def test_runner_timeout_handling(self, mock_run, mock_which):
+        """Verify that a timeout in the subprocess is caught and logged, not crashing the app."""
+        mock_which.return_value = "/usr/bin/codex"
+        
+        # Simulate a TimeoutExpired exception
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd=["codex"], timeout=10)
+        
+        runner = llm_ensemble.CodexRunner()
+        path_in = Path("in.txt")
+        path_out = Path("out.txt")
+        path_log = Path("log.txt")
+        
+        # We need to mock open() since the runner writes error logs to file
+        with patch('builtins.open', mock_open()) as m_open:
+            success = runner.run(path_in, path_out, path_log, 10, model="c")
+            
+            # Should return False, not raise Exception
+            self.assertFalse(success)
+            
+            # Verify error message was written to output file
+            handle = m_open()
+            written = "".join(call.args[0] for call in handle.write.call_args_list)
+            self.assertIn("[codex] ERROR:", written)
+            self.assertIn("timed out", str(written) + str(mock_run.side_effect))
 
 if __name__ == '__main__':
     unittest.main()
