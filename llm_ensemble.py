@@ -78,6 +78,7 @@ class Config:
     require_git: bool
     generate_pre_report: bool
     generate_post_report: bool
+    project_dir: Path
 
 # --- Utils ---
 def die(message: str):
@@ -210,7 +211,7 @@ class GeminiRunner(LLMRunner):
         super().__init__("gemini")
 
     def run(self, prompt_path: Path, output_path: Path, log_path: Path, 
-            timeout: int, model: str = "") -> bool:
+            timeout: int, model: str = "", cwd: Path = None) -> bool:
         
         json_out = output_path.with_suffix(".json")
         cmd = [self.executable, "--output-format", "json"]
@@ -228,7 +229,7 @@ class GeminiRunner(LLMRunner):
                 
                 subprocess.run(cmd, stdin=f_in, stdout=f_out, stderr=f_err, 
                                timeout=timeout if timeout > 0 else None, 
-                               env=env, check=True)
+                               env=env, check=True, cwd=cwd)
 
             # Parse JSON output
             with open(json_out, 'r', encoding='utf-8') as f:
@@ -265,7 +266,7 @@ class CodexRunner(LLMRunner):
 
     def run(self, prompt_path: Path, output_path: Path, log_path: Path, 
             timeout: int, model: str = "", reasoning: str = "high", 
-            require_git: bool = False) -> bool:
+            require_git: bool = False, cwd: Path = None) -> bool:
         
         cmd = [self.executable, "exec", "--sandbox", "read-only", "--color", "never"]
         if not require_git:
@@ -283,7 +284,7 @@ class CodexRunner(LLMRunner):
                  
                 subprocess.run(cmd, stdin=f_in, stdout=f_out, stderr=f_err, 
                                timeout=timeout if timeout > 0 else None, 
-                               check=True)
+                               check=True, cwd=cwd)
             return True
         except subprocess.CalledProcessError as e:
             # Try to read the error log to provide more context
@@ -446,29 +447,41 @@ class EnsembleApp:
         self.prompt_canon = self.cfg.outdir / "prompt.txt"
         
         # --- Context Processing ---
-        context_block = self.process_context_files(self.cfg.context_files)
+        # Resolve files relative to project_dir if they are relative
+        resolved_context_files = []
+        for cf in self.cfg.context_files:
+            if not cf.is_absolute():
+                resolved_context_files.append(self.cfg.project_dir / cf)
+            else:
+                resolved_context_files.append(cf)
+        
+        context_block = self.process_context_files(resolved_context_files)
 
         # --- Main Prompt Processing ---
         content = ""
         
         if self.cfg.prompt_file:
-            if not self.cfg.prompt_file.exists():
-                die(f"Prompt file not found: {self.cfg.prompt_file}")
-            if self.cfg.prompt_file.stat().st_size == 0:
-                die(f"Prompt file is empty: {self.cfg.prompt_file}")
+            pf = self.cfg.prompt_file
+            if not pf.is_absolute():
+                pf = self.cfg.project_dir / pf
+                
+            if not pf.exists():
+                die(f"Prompt file not found: {pf}")
+            if pf.stat().st_size == 0:
+                die(f"Prompt file is empty: {pf}")
             
             # Binary check & Reading
             try:
                 # First try reading as utf-8
-                content = self.cfg.prompt_file.read_text(encoding='utf-8')
+                content = pf.read_text(encoding='utf-8')
             except UnicodeDecodeError:
                 # If utf-8 fails, check for null bytes to detect binary
-                raw = self.cfg.prompt_file.read_bytes()
+                raw = pf.read_bytes()
                 if b'\0' in raw:
-                    die(f"Prompt file appears to be binary: {self.cfg.prompt_file}")
+                    die(f"Prompt file appears to be binary: {pf}")
                 # Try latin-1 as fallback for non-utf8 text
                 content = raw.decode('latin-1', errors='replace')
-                self.log(f"Warning: Converted {self.cfg.prompt_file} to UTF-8 using fallback encoding.")
+                self.log(f"Warning: Converted {pf} to UTF-8 using fallback encoding.")
         
         elif self.cfg.prompt_text:
             content = self.cfg.prompt_text
@@ -555,10 +568,10 @@ class EnsembleApp:
                 self.log(f"Scheduling {provider} model='{model}' ({i}/{self.cfg.iterations})...")
                 
                 if provider == 'gemini':
-                    future = executor.submit(self.gemini_runner.run, self.prompt_canon, out_txt, log_file, self.cfg.timeout, model=model)
+                    future = executor.submit(self.gemini_runner.run, self.prompt_canon, out_txt, log_file, self.cfg.timeout, model=model, cwd=self.cfg.project_dir)
                 else: # codex
                     future = executor.submit(self.codex_runner.run, self.prompt_canon, out_txt, log_file, self.cfg.timeout, 
-                                             model=model, reasoning=self.cfg.codex_reasoning, require_git=self.cfg.require_git)
+                                             model=model, reasoning=self.cfg.codex_reasoning, require_git=self.cfg.require_git, cwd=self.cfg.project_dir)
                 
                 future_to_task[future] = (out_txt, provider, model, i)
 
@@ -736,6 +749,9 @@ def parse_args() -> Config:
     parser.add_argument("--format", dest="output_format", choices=['txt', 'rtf', 'docx'], default="txt", help="Output format")
     parser.add_argument("--require-git", action="store_true", help="Enable Codex git repo check")
     
+    # Project Directory
+    parser.add_argument("-d", "--project-dir", type=Path, default=Path("."), help="Project directory (base for context files and output)")
+    
     # Report flags (Defaults true for GUI parity, but let's make them flags here)
     parser.add_argument("--no-pre-report", action="store_false", dest="generate_pre_report", help="Disable Pre-Merge HTML Report")
     parser.add_argument("--no-post-report", action="store_false", dest="generate_post_report", help="Disable Post-Merge HTML Report")
@@ -757,14 +773,16 @@ def parse_args() -> Config:
     if args.prompt_file and prompt_text:
         parser.error("Use only one of --prompt (or positional) or --prompt-file")
     
+    # Resolve Output Directory relative to Project Dir
     if not args.outdir:
         ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        # Default: ./Outputs/llm_ensemble_TIMESTAMP
-        args.outdir = Path("Outputs") / f"llm_ensemble_{ts}"
-
-    merge_provider = "codex"
-    if args.merge_codex_model and "gemini" in args.merge_codex_model.lower():
-        merge_provider = "gemini"
+        args.outdir = args.project_dir / "Outputs" / f"llm_ensemble_{ts}"
+    else:
+        # If user provided absolute path, use it. If relative, make it relative to project_dir?
+        # Standard convention: -o overrides default structure.
+        # But user requested: "all the outputs should be saved in the project directory"
+        # We will assume if -o is NOT provided, we use the project dir structure.
+        pass
 
     return Config(
         models_csv=args.models,
@@ -776,7 +794,7 @@ def parse_args() -> Config:
         gemini_model=args.gemini_model,
         codex_model=args.codex_model,
         codex_reasoning=args.codex_reasoning,
-        merge_codex_model=args.merge_codex_model, # Now holds either model
+        merge_codex_model=args.merge_codex_model,
         merge_provider=merge_provider,
         merge_reasoning=args.merge_reasoning,
         merge_prompt_text=args.merge_prompt,
@@ -786,7 +804,8 @@ def parse_args() -> Config:
         output_format=args.output_format,
         require_git=args.require_git,
         generate_pre_report=args.generate_pre_report,
-        generate_post_report=args.generate_post_report
+        generate_post_report=args.generate_post_report,
+        project_dir=args.project_dir.resolve()
     )
 
 def main():

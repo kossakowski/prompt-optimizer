@@ -17,8 +17,23 @@ class EnsembleGUI:
         self.style = ttk.Style()
         self.style.theme_use('clam')
         
+        self.create_widgets()
+        
+    def create_widgets(self):
+        main_frame = ttk.Frame(self.root, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # --- Project Directory Section ---
+        proj_frame = ttk.Frame(main_frame)
+        proj_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        ttk.Label(proj_frame, text="Project Dir:").pack(side=tk.LEFT)
+        self.project_dir_var = tk.StringVar(value=str(Path(".").resolve()))
+        ttk.Entry(proj_frame, textvariable=self.project_dir_var).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        ttk.Button(proj_frame, text="Browse", command=self.browse_project_dir).pack(side=tk.LEFT)
+        
         # Main Layout
-        self.notebook = ttk.Notebook(self.root)
+        self.notebook = ttk.Notebook(main_frame)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         self.tab_execution = ttk.Frame(self.notebook, padding="10")
@@ -31,6 +46,11 @@ class EnsembleGUI:
         self.create_config_tab()
         self.create_log_section()
         
+    def browse_project_dir(self):
+        d = filedialog.askdirectory()
+        if d:
+            self.project_dir_var.set(d)
+
     def create_execution_tab(self):
         frame = self.tab_execution
         
@@ -172,7 +192,9 @@ class EnsembleGUI:
         self.log_text.config(state='disabled')
 
     def add_file(self, listbox):
-        filenames = filedialog.askopenfilenames()
+        d = self.project_dir_var.get()
+        initial_dir = d if Path(d).exists() else "."
+        filenames = filedialog.askopenfilenames(initialdir=initial_dir)
         for f in filenames:
             listbox.insert(tk.END, f)
 
@@ -210,6 +232,13 @@ class EnsembleGUI:
 
     def run_process(self):
         try:
+            # Gather Project Dir First
+            project_dir_str = self.project_dir_var.get().strip()
+            project_dir = Path(project_dir_str)
+            if not project_dir.exists():
+                self.log(f"Error: Project directory does not exist: {project_dir}")
+                return
+
             # === PHASE 2: MERGE ONLY ===
             if self.is_merging_phase:
                 self.log("Resuming: Starting Merge Phase...")
@@ -222,11 +251,10 @@ class EnsembleGUI:
                      return
 
                 # Update the config inside the cached app
-                # We can modify the config object directly
                 if new_merge_prompt:
                     self.cached_app.cfg.merge_prompt_text = new_merge_prompt
                 
-                # Re-read merge context files in case user changed them (optional but good)
+                # Re-read merge context files
                 merge_ctx_files = [Path(self.merge_ctx_listbox.get(idx)) for idx in range(self.merge_ctx_listbox.size())]
                 self.cached_app.cfg.merge_context_files = merge_ctx_files
 
@@ -300,7 +328,8 @@ class EnsembleGUI:
 
             # Build Config
             ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            outdir = Path("Outputs") / f"llm_ensemble_{ts}"
+            # Output inside Project Dir / Outputs
+            outdir = project_dir / "Outputs" / f"llm_ensemble_{ts}"
             
             config = llm_ensemble.Config(
                 models_csv=models_csv,
@@ -313,7 +342,7 @@ class EnsembleGUI:
                 codex_model=llm_ensemble.DEFAULT_CODEX_MODEL,
                 codex_reasoning=reasoning,
                 merge_codex_model=merge_model_val,
-                merge_provider=merge_provider, # Added this
+                merge_provider=merge_provider,
                 merge_reasoning=merge_reasoning_val,
                 merge_prompt_text=merge_prompt if merge_prompt else None,
                 merge_prompt_file=None,
@@ -322,7 +351,8 @@ class EnsembleGUI:
                 output_format=out_format,
                 require_git=False,
                 generate_pre_report=self.pre_report_var.get(),
-                generate_post_report=self.post_report_var.get()
+                generate_post_report=self.post_report_var.get(),
+                project_dir=project_dir
             )
             
             # Run App
@@ -335,21 +365,8 @@ class EnsembleGUI:
             
             # --- HITL CHECK ---
             if self.hitl_var.get():
-                # Generate Pre-Report specifically here if needed, but app.merge usually does it.
-                # Actually, app.merge does it. But in HITL, we want the report BEFORE merge.
-                # So we should manually call the pre-report generation part?
-                # The core logic inside app.merge() handles pre-report.
-                # Let's extract pre-report generation or just let the user see the files.
-                # Better: Modify llm_ensemble.py to separate report generation? 
-                # For now, let's just generate the report here using the helper.
-                
                 if config.generate_pre_report:
-                    # We need to manually invoke the report generator here because we are pausing
-                    # Re-create the pre-report logic temporarily or refactor app.
-                    # Since we can't easily refactor app.merge in this step without touching llm_ensemble.py,
-                    # We will assume the user looks at the raw files or we call a new method if we add it.
-                    # Let's add a generate_pre_report method to EnsembleApp in the next step.
-                    app.generate_pre_merge_report(results, "Pending Merge Instruction") # We will add this method
+                    app.generate_pre_merge_report(results, "Pending Merge Instruction")
                 
                 self.log("\n--- PAUSED FOR HUMAN REVIEW ---")
                 self.log("1. Review the generated files/report.")
