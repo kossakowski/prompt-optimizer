@@ -93,11 +93,14 @@ class EnsembleGUI:
         ttk.Checkbutton(model_frame, text="Use Codex", variable=self.use_codex).grid(row=1, column=0, sticky=tk.W)
         ttk.Label(model_frame, text="Model:").grid(row=1, column=1, sticky=tk.W)
         self.codex_model_var = tk.StringVar(value=llm_ensemble.DEFAULT_CODEX_MODEL)
-        ttk.Combobox(model_frame, textvariable=self.codex_model_var, values=llm_ensemble.CODEX_KNOWN_MODELS).grid(row=1, column=2, sticky=tk.EW, padx=5)
+        codex_cb = ttk.Combobox(config_frame, textvariable=self.codex_model_var, values=llm_ensemble.CODEX_KNOWN_MODELS)
+        codex_cb.grid(row=1, column=2, sticky=tk.EW, padx=5)
+        codex_cb.bind("<<ComboboxSelected>>", self.update_reasoning_options)
         
         ttk.Label(model_frame, text="Reasoning:").grid(row=1, column=3, sticky=tk.W)
         self.reasoning_var = tk.StringVar(value=llm_ensemble.DEFAULT_CODEX_REASONING)
-        ttk.Combobox(model_frame, textvariable=self.reasoning_var, values=sorted(list(llm_ensemble.VALID_REASONING_LEVELS)), state="readonly").grid(row=1, column=4, sticky=tk.EW, padx=5)
+        self.reasoning_cb = ttk.Combobox(model_frame, textvariable=self.reasoning_var, values=sorted(list(llm_ensemble.VALID_REASONING_LEVELS)), state="readonly")
+        self.reasoning_cb.grid(row=1, column=4, sticky=tk.EW, padx=5)
 
         model_frame.columnconfigure(2, weight=1)
 
@@ -159,6 +162,22 @@ class EnsembleGUI:
 
     def clear_list(self, listbox):
         listbox.delete(0, tk.END)
+
+    def update_reasoning_options(self, event=None):
+        selected_model = self.codex_model_var.get()
+        all_levels = sorted(list(llm_ensemble.VALID_REASONING_LEVELS))
+        
+        if selected_model == "gpt-5.1-codex-mini":
+            # Remove 'xhigh' if present
+            filtered_levels = [x for x in all_levels if x != "xhigh"]
+            self.reasoning_cb['values'] = filtered_levels
+            
+            # If current selection is invalid, reset to default (medium or high)
+            if self.reasoning_var.get() == "xhigh":
+                self.reasoning_var.set("high")
+        else:
+            # Restore all levels
+            self.reasoning_cb['values'] = all_levels
 
     def start_thread(self):
         # Disable button
