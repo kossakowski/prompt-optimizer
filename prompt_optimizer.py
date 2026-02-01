@@ -97,6 +97,42 @@ def process_context_files(file_list: list[Path]) -> str:
         formatted_content.append(f"[Context File: {ctx_file.name}]\n<<<\n{ctx_text}\n>>>\n")
     return "".join(formatted_content)
 
+def construct_meta_prompt(draft, context, target_model):
+    """
+    Constructs the meta-prompt.
+    target_model string might look like: "gemini-3-pro-preview" or "gpt-5.2-codex model (Reasoning Level: high)"
+    """
+    
+    context_section = ""
+    context_intro = ""
+    
+    if context and context.strip():
+        context_intro = "Before improving the prompt, analyze the attached documents, which constitute essential contextual material. These documents are intended to help you fully understand the underlying issue and should be taken into account when refining the prompt."
+        context_section = f"\\n**Attached Background Context:**\\n{context}\\n"
+
+    return f"""Please review and improve the following prompt so that it delivers optimal results when used with the {target_model}.
+{context_intro}
+{context_section}
+Below is the draft prompt that requires correction and improvement:
+{draft}
+
+**Instructions:**
+1. Improve clarity, structure, and persona.
+2. Ensure all necessary context is included or referenced appropriately.
+3. **Crucial:** Define a persona relevant to the *task* (e.g., "You are a Senior Python Dev" or "You are a Creative Writer"). Do **NOT** assume or state the model's identity (e.g., do NOT write "You are gpt-5.2" or "You are Gemini").
+4. Output ONLY the optimized prompt."""
+
+def construct_refinement_prompt(previous_output, feedback):
+    return f"""Here is the prompt you just wrote:
+<<<
+{previous_output}
+>>>>>
+
+The user wants this change:
+"{feedback}"
+
+Rewrite the prompt to incorporate this feedback. Output ONLY the updated prompt."""
+
 # --- Runners (Adapted from llm_ensemble.py) ---
 class GeminiRunner:
     def __init__(self):
@@ -351,42 +387,6 @@ class PromptOptimizerApp:
         files = [Path(self.files_list.get(idx)) for idx in range(self.files_list.size())]
         return process_context_files(files)
 
-    def construct_meta_prompt(self, draft, context, target_model):
-        """
-        Constructs the meta-prompt.
-        target_model string might look like: "gemini-3-pro-preview" or "gpt-5.2-codex model (Reasoning Level: high)"
-        """
-        
-        context_section = ""
-        context_intro = ""
-        
-        if context and context.strip():
-            context_intro = "Before improving the prompt, analyze the attached documents, which constitute essential contextual material. These documents are intended to help you fully understand the underlying issue and should be taken into account when refining the prompt."
-            context_section = f"\n**Attached Background Context:**\n{context}\n"
-
-        return f"""Please review and improve the following prompt so that it delivers optimal results when used with the {target_model}.
-{context_intro}
-{context_section}
-Below is the draft prompt that requires correction and improvement:
-{draft}
-
-**Instructions:**
-1. Improve clarity, structure, and persona.
-2. Ensure all necessary context is included or referenced appropriately.
-3. **Crucial:** Define a persona relevant to the *task* (e.g., "You are a Senior Python Dev" or "You are a Creative Writer"). Do **NOT** assume or state the model's identity (e.g., do NOT write "You are gpt-5.2" or "You are Gemini").
-4. Output ONLY the optimized prompt."""
-
-    def construct_refinement_prompt(self, previous_output, feedback):
-        return f"""Here is the prompt you just wrote:
-<<<
-{previous_output}
->>>>>
-
-The user wants this change:
-"{feedback}"
-
-Rewrite the prompt to incorporate this feedback. Output ONLY the updated prompt."""
-
     # --- Threading & Execution ---
     def run_optimization(self):
         draft = self.draft_text.get("1.0", tk.END).strip()
@@ -453,17 +453,17 @@ Rewrite the prompt to incorporate this feedback. Output ONLY the updated prompt.
     def worker_optimization_gemini(self, model, draft, context, project_dir):
         # Target string for prompt wrapper
         target_str = f"{model} model"
-        prompt_content = self.construct_meta_prompt(draft, context, target_str)
+        prompt_content = construct_meta_prompt(draft, context, target_str)
         self.execute_llm("gemini", model, None, prompt_content, project_dir)
 
     def worker_optimization_codex(self, model, reasoning, draft, context, project_dir):
         # Target string for prompt wrapper
         target_str = f"{model} model (Reasoning Level: {reasoning})"
-        prompt_content = self.construct_meta_prompt(draft, context, target_str)
+        prompt_content = construct_meta_prompt(draft, context, target_str)
         self.execute_llm("codex", model, reasoning, prompt_content, project_dir)
 
     def worker_refinement(self, provider, model, reasoning, previous, feedback, project_dir):
-        prompt_content = self.construct_refinement_prompt(previous, feedback)
+        prompt_content = construct_refinement_prompt(previous, feedback)
         self.execute_llm(provider, model, reasoning, prompt_content, project_dir)
 
     def execute_llm(self, provider, model, reasoning, prompt_content, project_dir):
