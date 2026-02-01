@@ -20,6 +20,7 @@ The application leverages the power of the `gemini` and `codex` command-line too
     *   **Orchestration:** Manages threading to ensure the GUI remains responsive while waiting for LLM responses.
 
 *   **`Prompts/`**: A directory created at runtime within the user-selected project folder. It stores exported prompts in JSON format.
+*   **`test_prompt_optimizer.py`**: Unit test suite using `unittest` and `unittest.mock`. Covers utility functions, prompt construction, and runner logic.
 
 ## Building and Running
 
@@ -59,3 +60,11 @@ chmod +x prompt_optimizer.py
 3.  **Optimization:** User clicks "RUN OPTIMIZATION". The app constructs a meta-prompt and calls both CLIs.
 4.  **Refinement:** User can refine individual outputs. The app sends the previous output + user feedback back to the specific model.
 5.  **Export:** User clicks "Export Prompts to JSON" to save the results.
+
+## Testing
+
+The project uses `unittest` for testing. The test suite mocks external CLI calls and file system operations to verify logic without requiring the actual CLI tools or GUI environment.
+
+```bash
+python3 test_prompt_optimizer.py
+```
